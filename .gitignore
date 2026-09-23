@@ -3,3 +3,4 @@
 .mimosa/
 .build/
 __pycache__/
+make_release.py
