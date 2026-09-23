@@ -63,7 +63,7 @@ except ImportError:
     sys.exit("Missing dependency 'pycryptodome'. Run: pip install requests paramiko pycryptodome")
 
 TOOL = "digi-f8748"
-VERSION = "0.0.1"
+VERSION = "0.0.2"
 MAX_XML_BYTES = 262144
 
 # --------------------------------------------------------------------------

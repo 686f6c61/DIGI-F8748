@@ -13,7 +13,7 @@
 F8748. Si estás aquí, es que la has perdido. La recuperamos en unos
 minutos — sin instalar nada y sin tocar tu configuración.**
 
-v0.0.1 · macOS (Apple Silicon) · Linux x64/ARM64 · Windows 10/11
+v0.0.2 · macOS (Apple Silicon) · Linux x64/ARM64 · Windows 10/11
 
 ---
 

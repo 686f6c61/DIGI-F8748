@@ -9,7 +9,6 @@
   :root{
     --bg:#0b1220; --bg2:#0f1830; --card:#121c30; --line:#22314f;
     --text:#e6edf7; --muted:#93a4c3; --accent:#22d3a7; --accent2:#4f9cf9;
-    --warn:#ffd166; --danger:#ff7a7a;
     --mono:"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
   }
   *{box-sizing:border-box;margin:0;padding:0}
@@ -88,7 +87,7 @@
 | |_| | | |_| || |
 |____/___\____|___|
 </pre>
-<p class="tagline">ZTE F8748 (Digi) · solo uso autorizado · v1.0.0</p>
+<p class="tagline">ZTE F8748 (Digi) · solo uso autorizado · v0.0.2</p>
 
 <h1>DIGI F8748 <span class="hl">Admin Recovery</span></h1>
 <p class="sub">El recuperador de la <strong>contraseña de administrador</strong> de tu
@@ -127,18 +126,20 @@ aparato, en unos minutos.</p>
   <div class="card"><h3><span class="ok">✔</span> Cero instalación en tu equipo</h3>
     <p>Todo son scripts legibles y autocontenidos. Los ficheros temporales se
     borran solos al terminar.</p></div>
-  <div class="card"><h3><span class="ok">✔</span> Solo lectura</h3>
-    <p>Se leen zonas de la memoria flash del router. Nunca se escribe en la
-    configuración ni en las cuentas.</p></div>
+  <div class="card"><h3><span class="ok">✔</span> Sin cambios de configuración</h3>
+    <p>No se altera ningún ajuste, cuenta ni firmware. El proceso activa
+    temporalmente el diagnóstico de fábrica ya presente (cambio de estado
+    reversible) y <b>lee</b> zonas protegidas de la flash.</p></div>
   <div class="card"><h3><span class="ok">✔</span> Se desactiva solo</h3>
     <p>El acceso temporal de diagnóstico se cierra automáticamente al final,
     incluso si el proceso falla.</p></div>
   <div class="card"><h3><span class="ok">✔</span> Paso a paso</h3>
     <p>Cada fase es un comando independiente: ves qué hace antes de hacerlo.
     Nada se toca hasta que tú lo pides.</p></div>
-  <div class="card"><h3><span class="ok">✔</span> Reversible al 100 %</h3>
-    <p>Si algo se interrumpe, apagar y encender el router devuelve todo a la
-    normalidad.</p></div>
+  <div class="card"><h3><span class="ok">✔</span> Divulgación responsable</h3>
+    <p>El hallazgo ha sido <b>notificado al equipo de seguridad de ZTE
+    (ZTE PSIRT) por correo</b> para que evalúe y corrija el comportamiento en
+    próximas versiones de firmware.</p></div>
 </div>
 
 <h2 id="como-funciona">Cómo funciona</h2>
@@ -168,8 +169,8 @@ No se adivina nada: se lee.</p>
   <span>Carpeta con scripts en el repo</span></a>
   <a href="https://github.com/686f6c61/DIGI-F8748/tree/main/DIGI-F8748-windows"><b>Windows 10/11</b>
   <span>Carpeta con scripts en el repo</span></a>
-  <a href="https://github.com/686f6c61/DIGI-F8748/tree/main"><b>Código fuente</b>
-  <span>Los tres scripts, para auditar</span></a>
+  <a href="https://github.com/686f6c61/DIGI-F8748/blob/main/CHANGELOG.md"><b>Changelog</b>
+  <span>Qué cambia en cada versión</span></a>
 </div>
 <p class="lead">Todo lo que se ejecuta es texto legible: <code>.sh</code>,
 <code>.ps1</code> y <code>.py</code>. No hay binarios que firmar, desbloquear
@@ -213,7 +214,8 @@ digi-f8748-ps1.bat recover</pre>
   <p>No. La que se recupera es la que ya tiene almacenada el router de
   fábrica. Después puedes cambiarla tú desde el panel.</p></details>
 <details><summary>¿Se modifica la configuración o se pierde Internet?</summary>
-  <p>No. El proceso es de solo lectura sobre la configuración y al terminar no
+  <p>No. El proceso no modifica la configuración: activa temporalmente el
+  diagnóstico de fábrica ya presente y lee datos del equipo. Al terminar no
   queda ningún acceso abierto.</p></details>
 <details><summary>¿Sirve para cualquier router?</summary>
   <p>Está específica para la familia ZTE F8748 de DIGI España.</p></details>
@@ -223,6 +225,19 @@ digi-f8748-ps1.bat recover</pre>
 <details><summary>¿Y si se corta a mitad de proceso?</summary>
   <p>Apaga y enciende el router, espera un par de minutos y vuelve a
   intentarlo una vez. Todo vuelve a la normalidad por sí solo.</p></details>
+<details><summary>El diagnóstico "no devuelve credenciales"</summary>
+  <p>Es el caso más común: el diagnóstico de fábrica del router se queda
+  atascado tras varios intentos seguidos. No es culpa de tu equipo ni de la
+  herramienta — ocurre igual con implementaciones independientes del mismo
+  protocolo. <b>Solución:</b> apaga y enciende el router, espera 2 minutos y
+  lanza una sola pasada de <code>recover</code>. No encadenes intentos: cada
+  ronda empeora el atasco.</p></details>
+<details><summary>¿Cómo compruebo el estado del router?</summary>
+  <p>Con la propia herramienta: <code>handshake</code> (no toca nada) te dice
+  si el router responde. Para el bloqueo del login web:
+  <code>curl "http://192.168.1.1/?_type=loginData&amp;_tag=login_entry"</code>
+  — si <code>lockingTime</code> es mayor que 0, espera o reinicia. Para saber
+  si quedó un SSH abierto: <code>nc -z 192.168.1.1 22</code>.</p></details>
 
 <h2>Requisitos</h2>
 <p class="lead">Estar conectado a la red del router, el login web normal
@@ -232,11 +247,18 @@ interrumpir el proceso.</p>
 <div class="legal"><b>Uso responsable:</b> herramienta pensada para recuperar el
 acceso de administrador en routers propios o autorizados explícitamente.
 Software proporcionado "tal cual", sin garantías: úsala bajo tu propia
-responsabilidad.</div>
+responsabilidad.<br>
+<b>Divulgación responsable:</b> hallazgo notificado a ZTE PSIRT por correo
+(22/09/2026) — ver <a href="https://github.com/686f6c61/DIGI-F8748/blob/main/DISCLOSURE.md">DISCLOSURE.md</a>
+en el repositorio.<br>
+<b>Autorización y legal:</b> los comandos que activan el diagnóstico exigen
+confirmar que eres el propietario del equipo o que tienes autorización
+expresa. En España el router suele ser propiedad del operador: si tienes
+dudas sobre tu caso, consulta con un profesional legal.</div>
 
 <footer>
-  DIGI F8748 Admin Recovery v1.0.0 · scripts abiertos para macOS, Linux y Windows ·
-  <a href="DIGI-F8748-v1.0.0-source.zip">código fuente</a><br>
+  DIGI F8748 Admin Recovery v0.0.2 · scripts abiertos para macOS, Linux y Windows ·
+  <a href="https://github.com/686f6c61/DIGI-F8748/releases/download/v0.0.2/DIGI-F8748-v0.0.2-source.zip">código fuente</a><br>
   Hecho por <a href="https://github.com/686f6c61">686f6c61</a> ·
   <a href="https://github.com/686f6c61/DIGI-F8748">github.com/686f6c61/DIGI-F8748</a>
 </footer>

@@ -27,7 +27,7 @@
 #  el script TE PREGUNTA antes de instalarlo (PSGallery, alcance usuario).
 # =============================================================================
 $ErrorActionPreference = 'Stop'
-$VERSION = "0.0.1"
+$VERSION = "0.0.2"
 
 # ------------------------- constantes del firmware ZTE -----------------------
 $KEYPOOL_HEX = "9c3375d11c424537184891731745794443d7d573335476d2c5f12c4f7aba61d95c69df8cd21cde3b352d2fe1de4c77f51a65d1fe18438ea742080478d5e4f334a4d3f236476d869d42651342dc429948dc679f9edc46375f849f6f76ce794f49"
