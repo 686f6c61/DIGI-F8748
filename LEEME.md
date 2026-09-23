@@ -156,6 +156,72 @@ fábrica. Con ellos puedes:
 - El login web normal del router (habitualmente `user` / `user`).
 - Varios minutos sin interrumpir el proceso.
 
+## Solución de problemas
+
+Todo lo siguiente son casos reales observados y documentados durante el
+desarrollo y las pruebas de esta herramienta.
+
+### El diagnóstico "no devuelve credenciales" (el más común)
+
+**Síntoma:** `handshake` funciona (el router responde al reto), pero `arm` o
+`recover` terminan con *"FactoryMode no devolvió credenciales"*.
+
+**Causa:** el diagnóstico de fábrica del router se queda en un estado interno
+atascado, normalmente tras varios intentos seguidos o pruebas repetidas.
+No es un problema del equipo ni de la herramienta: ocurre igual con
+implementaciones independientes del mismo protocolo.
+
+**Solución (la que el propio fabricante documenta):**
+
+1. Apaga y enciende el router (desenchúfalo 10 segundos).
+2. Espera **2 minutos**.
+3. Lanza **una sola pasada**: `./start.sh recover`
+
+No encadenes intentos: cada ronda de reintentos empeora el atasco.
+
+### Diagnóstico rápido del estado del router
+
+```bash
+# ¿El login web está bloqueado por intentos fallidos?
+curl -s "http://192.168.1.1/?_type=loginData&_tag=login_entry"
+#   → "lockingTime":0 = sin bloqueo; un número > 0 = espera o reinicia
+
+# ¿Quedó un SSH de fábrica abierto de una ejecución interrumpida?
+nc -z 192.168.1.1 22 && echo "ABIERTO — ejecuta disarm o reinicia" || echo "cerrado"
+
+# ¿El router responde al reto del diagnóstico? (no toca nada)
+./start.sh handshake
+```
+
+Si el puerto 22 quedó abierto y `disarm` no responde, reinicia el router:
+el acceso temporal desaparece con el reinicio.
+
+### La confirmación de autorización
+
+Los comandos `arm`, `dump` y `recover` piden escribir **SI** (acepta
+mayúsculas, minúsculas o mezcla). Esa confirmación es obligatoria: es la
+garantía de que el equipo es tuyo o estás autorizado. Para entornos
+automatizados existe el flag `-y`, que la omite bajo tu responsabilidad.
+
+### Si los ficheros "se revierten solos" (macOS: carpeta Descargas)
+
+Si mantienes el proyecto en `~/Downloads`, macOS y las copias de seguridad
+(Time Machine) pueden **restaurar versiones antiguas encima de las nuevas** —
+detectamos este caso real: scripts revertidos a versiones de horas atrás sin
+motivo aparente. Recomendaciones:
+
+- Mueve el proyecto a una carpeta estable (p. ej. `~/Proyectos/`).
+- Antes de ejecutar, verifica que tu copia es la buena:
+  `grep -c require_auth digi-f8748.sh` debe devolver **2** (edición shell).
+
+### Consideraciones legales
+
+En España el router suele ser **propiedad del operador** y la investigación
+sobre productos de terceros puede tener implicaciones según tu contrato y
+las circunstancias. La herramienta exige confirmar que eres el propietario o
+que tienes autorización expresa. Si tienes dudas sobre tu caso concreto,
+consulta con un profesional legal especializado.
+
 ## Preguntas frecuentes
 
 **¿Se cambia la contraseña del router?**

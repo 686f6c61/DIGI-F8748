@@ -13,7 +13,7 @@
 F8748. Si estás aquí, es que la has perdido. La recuperamos en unos
 minutos — sin instalar nada y sin tocar tu configuración.**
 
-v1.0.0 · macOS (Apple Silicon) · Linux x64/ARM64 · Windows 10/11
+v0.0.1 · macOS (Apple Silicon) · Linux x64/ARM64 · Windows 10/11
 
 ---
 
@@ -42,7 +42,7 @@ Nada se adivina, nada se fuerza: se lee.
 |---|---|
 | **Cero instalación en el router** | No se toca el firmware, ni el software, ni la configuración. No se cambia ninguna contraseña. |
 | **Cero instalación en tu equipo** | La edición script no deja nada persistente. Los ficheros temporales se borran solos al terminar. |
-| **Solo lectura** | Se leen zonas de la flash del router. Nunca se escribe en la configuración. |
+| **Sin cambios de configuración** | No se altera ningún ajuste, cuenta ni firmware. El proceso activa temporalmente el diagnóstico de fábrica ya presente (cambio de estado reversible) y **lee** zonas protegidas de la flash. |
 | **Se desactiva solo** | El acceso temporal de diagnóstico se cierra automáticamente al final, incluso si algo falla. |
 | **Paso a paso** | Cada fase es un comando independiente: puedes ver qué hace antes de hacerlo. |
 | **Reversible al 100 %** | Si algo se interrumpe, apagar y encender el router devuelve todo a la normalidad. |
@@ -56,17 +56,17 @@ Todo son **scripts**: no hay binarios que firmar, desbloquear ni actualizar.
 
 | Fichero | Para |
 |---|---|
-| `DIGI-F8748-v1.0.0-shell-universal.zip` | **macOS y Linux — recomendado**: script + start.sh |
-| `DIGI-F8748-v1.0.0-macos.zip` | macOS (Silicon e Intel): carpeta lista para usar |
-| `DIGI-F8748-v1.0.0-linux.zip` | Linux x64/ARM64 (incl. Raspberry Pi): carpeta lista para usar |
-| `DIGI-F8748-v1.0.0-windows.zip` | Windows 10/11: PowerShell nativo o Python |
-| `DIGI-F8748-v1.0.0-source.zip` | Código fuente completo |
+| `DIGI-F8748-v0.0.1-shell-universal.zip` | **macOS y Linux — recomendado**: script + start.sh |
+| `DIGI-F8748-v0.0.1-macos.zip` | macOS (Silicon e Intel): carpeta lista para usar |
+| `DIGI-F8748-v0.0.1-linux.zip` | Linux x64/ARM64 (incl. Raspberry Pi): carpeta lista para usar |
+| `DIGI-F8748-v0.0.1-windows.zip` | Windows 10/11: PowerShell nativo o Python |
+| `DIGI-F8748-v0.0.1-source.zip` | Código fuente completo |
 
 ## Primeros pasos por sistema operativo
 
 ### macOS — Apple Silicon (M1/M2/M3/M4) e Intel
 
-1. Descarga `DIGI-F8748-v1.0.0-shell-universal.zip` y descomprímelo.
+1. Descarga `DIGI-F8748-v0.0.1-shell-universal.zip` y descomprímelo.
 2. En Terminal, dentro de la carpeta:
 
 ```bash
@@ -81,7 +81,7 @@ Funciona igual en Apple Silicon y en Intel.
 
 ### Linux (x64 y ARM64, incl. Raspberry Pi)
 
-1. Descarga `DIGI-F8748-v1.0.0-shell-universal.zip` y descomprímelo.
+1. Descarga `DIGI-F8748-v0.0.1-shell-universal.zip` y descomprímelo.
 2. En Terminal, dentro de la carpeta:
 
 ```bash
@@ -96,7 +96,7 @@ administrador solo en ese caso.
 
 ### Windows 10/11
 
-Descarga `DIGI-F8748-v1.0.0-windows.zip` y descomprímelo. Dos opciones:
+Descarga `DIGI-F8748-v0.0.1-windows.zip` y descomprímelo. Dos opciones:
 
 - **PowerShell (recomendada, sin Python):** doble clic en
   `digi-f8748-ps1.bat`, o desde consola:
@@ -156,6 +156,72 @@ fábrica. Con ellos puedes:
 - El login web normal del router (habitualmente `user` / `user`).
 - Varios minutos sin interrumpir el proceso.
 
+## Solución de problemas
+
+Todo lo siguiente son casos reales observados y documentados durante el
+desarrollo y las pruebas de esta herramienta.
+
+### El diagnóstico "no devuelve credenciales" (el más común)
+
+**Síntoma:** `handshake` funciona (el router responde al reto), pero `arm` o
+`recover` terminan con *"FactoryMode no devolvió credenciales"*.
+
+**Causa:** el diagnóstico de fábrica del router se queda en un estado interno
+atascado, normalmente tras varios intentos seguidos o pruebas repetidas.
+No es un problema del equipo ni de la herramienta: ocurre igual con
+implementaciones independientes del mismo protocolo.
+
+**Solución (la que el propio fabricante documenta):**
+
+1. Apaga y enciende el router (desenchúfalo 10 segundos).
+2. Espera **2 minutos**.
+3. Lanza **una sola pasada**: `./start.sh recover`
+
+No encadenes intentos: cada ronda de reintentos empeora el atasco.
+
+### Diagnóstico rápido del estado del router
+
+```bash
+# ¿El login web está bloqueado por intentos fallidos?
+curl -s "http://192.168.1.1/?_type=loginData&_tag=login_entry"
+#   → "lockingTime":0 = sin bloqueo; un número > 0 = espera o reinicia
+
+# ¿Quedó un SSH de fábrica abierto de una ejecución interrumpida?
+nc -z 192.168.1.1 22 && echo "ABIERTO — ejecuta disarm o reinicia" || echo "cerrado"
+
+# ¿El router responde al reto del diagnóstico? (no toca nada)
+./start.sh handshake
+```
+
+Si el puerto 22 quedó abierto y `disarm` no responde, reinicia el router:
+el acceso temporal desaparece con el reinicio.
+
+### La confirmación de autorización
+
+Los comandos `arm`, `dump` y `recover` piden escribir **SI** (acepta
+mayúsculas, minúsculas o mezcla). Esa confirmación es obligatoria: es la
+garantía de que el equipo es tuyo o estás autorizado. Para entornos
+automatizados existe el flag `-y`, que la omite bajo tu responsabilidad.
+
+### Si los ficheros "se revierten solos" (macOS: carpeta Descargas)
+
+Si mantienes el proyecto en `~/Downloads`, macOS y las copias de seguridad
+(Time Machine) pueden **restaurar versiones antiguas encima de las nuevas** —
+detectamos este caso real: scripts revertidos a versiones de horas atrás sin
+motivo aparente. Recomendaciones:
+
+- Mueve el proyecto a una carpeta estable (p. ej. `~/Proyectos/`).
+- Antes de ejecutar, verifica que tu copia es la buena:
+  `grep -c require_auth digi-f8748.sh` debe devolver **2** (edición shell).
+
+### Consideraciones legales
+
+En España el router suele ser **propiedad del operador** y la investigación
+sobre productos de terceros puede tener implicaciones según tu contrato y
+las circunstancias. La herramienta exige confirmar que eres el propietario o
+que tienes autorización expresa. Si tienes dudas sobre tu caso concreto,
+consulta con un profesional legal especializado.
+
 ## Preguntas frecuentes
 
 **¿Se cambia la contraseña del router?**
@@ -163,7 +229,8 @@ No. La que se recupera es la que ya tiene almacenada el router de fábrica.
 Después puedes cambiarla tú desde el panel.
 
 **¿Se modifica la configuración o se pierde Internet?**
-No. El proceso es de solo lectura sobre la configuración. Al terminar no
+No. El proceso no modifica la configuración: se limita a activar temporalmente
+el diagnóstico de fábrica ya presente y a leer datos del equipo. Al terminar no
 queda ningún acceso abierto.
 
 **¿Sirve para cualquier router?**
@@ -179,9 +246,42 @@ una vez. Todo vuelve a la normalidad por sí solo.
 
 ## Para desarrolladores
 
-En `DIGI-F8748-v1.0.0-source.zip` tienes el código fuente completo — bash,
+En `DIGI-F8748-v0.0.1-source.zip` tienes el código fuente completo — bash,
 PowerShell y Python — para auditar cada línea antes de ejecutar nada. No hay
 binarios: todo lo que se ejecuta es lo que lees.
+
+## Divulgación responsable
+
+Este hallazgo ha sido **puesto en conocimiento del equipo de seguridad de ZTE
+(ZTE PSIRT) por correo electrónico** el 22 de septiembre de 2026, incluyendo
+la descripción del comportamiento, los pasos de reproducción y una referencia
+a este repositorio, con la intención de ayudar a mejorar la seguridad del
+producto. El texto completo del reporte está en
+[DISCLOSURE.md](DISCLOSURE.md). A la espera de acuse de recibo y número de
+seguimiento del caso.
+
+## Divulgación responsable
+
+Este hallazgo ha sido **puesto en conocimiento del equipo de seguridad de ZTE
+(ZTE PSIRT) por correo electrónico** el 22 de septiembre de 2026, incluyendo
+la descripción del comportamiento, los pasos de reproducción y una referencia
+a este repositorio, con la intención de ayudar a mejorar la seguridad del
+producto. El texto completo del reporte enviado está en
+[DISCLOSURE.md](DISCLOSURE.md), a la espera de acuse de recibo y número de
+seguimiento del caso.
+
+## Uso autorizado y consideraciones legales
+
+Los comandos que activan el diagnóstico de fábrica **exigen una confirmación
+explícita** (escribir `SI`) de que eres el propietario del router o que tienes
+autorización expresa para gestionarlo. Sin esa confirmación — o sin el flag
+`-y`, para entornos automatizados — la herramienta no continúa.
+
+Ten en cuenta que en España el router suele ser **propiedad del operador** y
+que la investigación sobre productos de terceros puede tener implicaciones
+legales según tu contrato y las circunstancias. Si tienes dudas sobre tu caso
+concreto, **consulta con un profesional legal** especializado antes de
+utilizar la herramienta.
 
 ## Aviso legal
 
