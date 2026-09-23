@@ -196,6 +196,29 @@ nc -z 192.168.1.1 22 && echo "ABIERTO — ejecuta disarm o reinicia" || echo "ce
 Si el puerto 22 quedó abierto y `disarm` no responde, reinicia el router:
 el acceso temporal desaparece con el reinicio.
 
+### Si tras un reinicio limpio sigue fallando
+
+Apagaste el router, esperaste los 2 minutos e `arm` sigue rechazando la
+prueba. Entonces hay dos posibilidades:
+
+1. **El firmware cambió** (los operadores auto-actualizan de noche). Si ZTE
+   o el operador han parcheado el comportamiento que esta herramienta usa,
+   la vía de recuperación puede haber desaparecido — y en ese caso la
+   divulgación ya ha cumplido su función. Compara tu versión de firmware
+   (`./start.sh info`) con la de cuando funcionó.
+2. **Las MACs no coinciden**: si tu equipo rotó su dirección Wi-Fi privada
+   (macOS lo hace periódicamente) o cambiaste de red, la prueba de MACs no
+   coincidirá. Verifica la MAC que el router muestra en su lista de
+   dispositivos y pásala con `--client-mac aa:bb:cc:dd:ee:ff`.
+
+En cualquiera de los casos, abre un issue en el repositorio con la salida de
+`./start.sh info` y de `./start.sh handshake` (sin datos sensibles): el
+hallazgo ya está notificado a ZTE PSIRT y esta información ayuda a
+documentar qué versiones están afectadas.
+
+**Importante:** si ya recuperaste tus credenciales con una versión anterior,
+guárdalas — no dependen de que esta herramienta siga funcionando.
+
 ### La confirmación de autorización
 
 Los comandos `arm`, `dump` y `recover` piden escribir **SI** (acepta
