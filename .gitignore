@@ -1,0 +1,5 @@
+*.zip
+.DS_Store
+.mimosa/
+.build/
+__pycache__/

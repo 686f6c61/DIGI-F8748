@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DIGI F8748 Admin Recovery — Recupera la contraseña de administrador de tu router</title>
+<meta name="description" content="Recuperador de la contraseña de administrador para routers DIGI ZTE F8748. Sin instalar nada, sin tocar tu configuración y con acceso de diagnóstico que se desactiva solo al terminar. macOS, Linux y Windows.">
+<style>
+  :root{
+    --bg:#0b1220; --bg2:#0f1830; --card:#121c30; --line:#22314f;
+    --text:#e6edf7; --muted:#93a4c3; --accent:#22d3a7; --accent2:#4f9cf9;
+    --warn:#ffd166; --danger:#ff7a7a;
+    --mono:"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{background:linear-gradient(180deg,var(--bg) 0%,var(--bg2) 100%);color:var(--text);
+       font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+       line-height:1.6;padding:0 20px}
+  main,section,footer{max-width:960px;margin:0 auto}
+  a{color:var(--accent2);text-decoration:none}
+  a:hover{text-decoration:underline}
+  .ascii{font-family:var(--mono);font-size:12px;line-height:1.15;color:var(--accent);
+         white-space:pre;text-align:center;margin:28px auto 8px}
+  .tagline{color:var(--muted);text-align:center;font-size:.95rem}
+  h1{font-size:2.4rem;text-align:center;margin:10px 0 6px;letter-spacing:-.5px}
+  h1 .hl{color:var(--accent)}
+  .sub{text-align:center;font-size:1.15rem;color:var(--text);max-width:720px;margin:0 auto 18px}
+  .chips{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin:18px 0 34px}
+  .chip{border:1px solid var(--line);background:var(--card);border-radius:999px;
+        padding:6px 14px;font-size:.85rem;color:var(--muted)}
+  .chip b{color:var(--text)}
+  h2{font-size:1.5rem;margin:46px 0 14px;border-left:4px solid var(--accent);padding-left:12px}
+  p.lead{color:var(--muted);margin-bottom:16px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin:18px 0}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px}
+  .card h3{font-size:1.02rem;margin-bottom:6px}
+  .card p{color:var(--muted);font-size:.93rem}
+  .ok{color:var(--accent);font-weight:700}
+  .steps{counter-reset:step;margin:18px 0}
+  .step{background:var(--card);border:1px solid var(--line);border-radius:12px;
+        padding:16px 18px;margin-bottom:12px;display:flex;gap:14px;align-items:flex-start}
+  .step::before{counter-increment:step;content:counter(step);
+        background:var(--accent);color:#04121b;font-weight:800;border-radius:8px;
+        min-width:30px;height:30px;display:flex;align-items:center;justify-content:center}
+  .step div b{display:block;margin-bottom:2px}
+  .step div span{color:var(--muted);font-size:.93rem}
+  table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);
+        border-radius:12px;overflow:hidden;font-size:.93rem}
+  th,td{padding:10px 14px;text-align:left;border-bottom:1px solid var(--line)}
+  th{background:#16233c;color:var(--muted);font-weight:600}
+  tr:last-child td{border-bottom:none}
+  code,pre{font-family:var(--mono)}
+  code{background:#0a1526;border:1px solid var(--line);border-radius:6px;padding:1px 6px;font-size:.88em}
+  pre.term{background:#081020;border:1px solid var(--line);border-radius:10px;padding:14px 16px;
+           overflow-x:auto;font-size:.88rem;line-height:1.5;color:#cde3ff;margin:14px 0}
+  pre.term .c{color:#5d7290}
+  .dl{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin:18px 0}
+  .dl a{display:block;background:var(--card);border:1px solid var(--line);border-radius:12px;
+        padding:16px;color:var(--text);transition:border-color .15s,transform .15s}
+  .dl a:hover{border-color:var(--accent);transform:translateY(-2px);text-decoration:none}
+  .dl a b{display:block;margin-bottom:2px}
+  .dl a span{color:var(--muted);font-size:.88rem}
+  .btn{display:inline-block;background:var(--accent);color:#04121b;font-weight:800;
+       border-radius:10px;padding:12px 22px;margin:6px 8px 30px;font-size:1.02rem}
+  .btn:hover{text-decoration:none;filter:brightness(1.1)}
+  .center{text-align:center}
+  details{background:var(--card);border:1px solid var(--line);border-radius:10px;
+          padding:14px 18px;margin-bottom:10px}
+  summary{cursor:pointer;font-weight:600}
+  details p{color:var(--muted);margin-top:8px;font-size:.95rem}
+  .legal{border:1px dashed var(--line);border-radius:12px;padding:14px 18px;
+         color:var(--muted);font-size:.92rem;margin:16px 0;text-align:center;
+         background:transparent}
+  .legal b{color:var(--text)}
+  footer{border-top:1px solid var(--line);margin:50px auto 30px;padding-top:20px;
+         color:var(--muted);font-size:.85rem;text-align:center}
+  @media(max-width:640px){h1{font-size:1.7rem}}
+</style>
+</head>
+<body>
+<main>
+
+<pre class="ascii">
+ ____ ___ ____ ___
+|  _ \_ _/ ___|_ _|
+| | | | | |  _ | |
+| |_| | | |_| || |
+|____/___\____|___|
+</pre>
+<p class="tagline">ZTE F8748 (Digi) · solo uso autorizado · v1.0.0</p>
+
+<h1>DIGI F8748 <span class="hl">Admin Recovery</span></h1>
+<p class="sub">El recuperador de la <strong>contraseña de administrador</strong> de tu
+router DIGI F8748. <strong>Si estás aquí, es que la has perdido.</strong>
+La recuperamos en unos minutos: sin instalar nada, sin tocar tu configuración
+y con el router exactamente como estaba al terminar.</p>
+
+<div class="chips">
+  <span class="chip"><b>macOS</b> Silicon e Intel</span>
+  <span class="chip"><b>Linux</b> x64 y ARM64</span>
+  <span class="chip"><b>Windows</b> 10/11</span>
+  <span class="chip">Solo scripts · sin binarios</span>
+  <span class="chip">Código legible</span>
+</div>
+
+<p class="center">
+  <a class="btn" href="https://github.com/686f6c61/DIGI-F8748">Descargar desde GitHub</a>
+  <a class="btn" href="#como-funciona" style="background:var(--card);color:var(--text);border:1px solid var(--line)">Cómo funciona</a>
+</p>
+
+<h2 id="problema">Si estás aquí, es que la has perdido</h2>
+<p class="lead">Tu operador te instala un router DIGI F8748 y la contraseña de
+administrador se pierde: no la apuntaste, venía en una pegatina gastada, te
+dieron solo la de usuario o nadie te la dijo. Sin ella no puedes abrir
+puertos, ajustar el Wi-Fi a fondo, gestionar la VLAN de la TV ni ver los
+dispositivos de tu red.</p>
+<p class="lead"><strong>Buena noticia:</strong> la contraseña ya está dentro de tu
+router. Este producto la recupera de forma segura, directamente desde el
+aparato, en unos minutos.</p>
+
+<h2 id="por-que">Por qué es seguro</h2>
+<div class="grid">
+  <div class="card"><h3><span class="ok">✔</span> Cero instalación en el router</h3>
+    <p>No se toca el firmware, ni el software, ni la configuración. No se cambia
+    ninguna contraseña. Nada queda instalado.</p></div>
+  <div class="card"><h3><span class="ok">✔</span> Cero instalación en tu equipo</h3>
+    <p>Todo son scripts legibles y autocontenidos. Los ficheros temporales se
+    borran solos al terminar.</p></div>
+  <div class="card"><h3><span class="ok">✔</span> Solo lectura</h3>
+    <p>Se leen zonas de la memoria flash del router. Nunca se escribe en la
+    configuración ni en las cuentas.</p></div>
+  <div class="card"><h3><span class="ok">✔</span> Se desactiva solo</h3>
+    <p>El acceso temporal de diagnóstico se cierra automáticamente al final,
+    incluso si el proceso falla.</p></div>
+  <div class="card"><h3><span class="ok">✔</span> Paso a paso</h3>
+    <p>Cada fase es un comando independiente: ves qué hace antes de hacerlo.
+    Nada se toca hasta que tú lo pides.</p></div>
+  <div class="card"><h3><span class="ok">✔</span> Reversible al 100 %</h3>
+    <p>Si algo se interrumpe, apagar y encender el router devuelve todo a la
+    normalidad.</p></div>
+</div>
+
+<h2 id="como-funciona">Cómo funciona</h2>
+<p class="lead">El router ya guarda el usuario y la contraseña de administrador
+dentro de su memoria flash, cifrados con claves de su propio firmware. La
+herramienta usa la interfaz de diagnóstico de fábrica que el fabricante
+incluyó de serie para que <strong>el propio router las muestre</strong>.
+No se adivina nada: se lee.</p>
+<div class="steps">
+  <div class="step"><div><b>Comprueba tu entorno</b>
+    <span>Detecta el router, el firmware y las MACs necesarias. Nada se toca todavía.</span></div></div>
+  <div class="step"><div><b>Abre el diagnóstico de fábrica</b>
+    <span>Activa temporalmente un mecanismo que el firmware ya trae y verifica el acceso.</span></div></div>
+  <div class="step"><div><b>Lee y descifra en local</b>
+    <span>Vuelca los datos cifrados de la flash y los descifra en tu equipo.</span></div></div>
+  <div class="step"><div><b>Confirma y cierra</b>
+    <span>Verifica el login de administrador, te muestra las credenciales y desactiva el acceso. El router queda como estaba.</span></div></div>
+</div>
+
+<h2 id="descargas">Descargas — todas en scripts, sin binarios</h2>
+<div class="dl">
+  <a href="https://github.com/686f6c61/DIGI-F8748/releases/latest"><b>Última release (todo)</b>
+  <span>Los 5 paquetes, en GitHub Releases</span></a>
+  <a href="https://github.com/686f6c61/DIGI-F8748/tree/main/DIGI-F8748-macos"><b>macOS (Silicon e Intel)</b>
+  <span>Carpeta con scripts en el repo</span></a>
+  <a href="https://github.com/686f6c61/DIGI-F8748/tree/main/DIGI-F8748-linux"><b>Linux x64 / ARM64</b>
+  <span>Carpeta con scripts en el repo</span></a>
+  <a href="https://github.com/686f6c61/DIGI-F8748/tree/main/DIGI-F8748-windows"><b>Windows 10/11</b>
+  <span>Carpeta con scripts en el repo</span></a>
+  <a href="https://github.com/686f6c61/DIGI-F8748/tree/main"><b>Código fuente</b>
+  <span>Los tres scripts, para auditar</span></a>
+</div>
+<p class="lead">Todo lo que se ejecuta es texto legible: <code>.sh</code>,
+<code>.ps1</code> y <code>.py</code>. No hay binarios que firmar, desbloquear
+ni actualizar.</p>
+
+<h2 id="instrucciones">Primeros pasos</h2>
+<div class="grid">
+  <div class="card"><h3>macOS (Silicon e Intel)</h3>
+    <pre class="term"><span class="c"># descomprime y entra en la carpeta</span>
+./start.sh info
+./start.sh recover</pre>
+    <p><code>start.sh</code> comprueba las dependencias (de serie en macOS) y
+    te pregunta si faltara alguna.</p></div>
+  <div class="card"><h3>Linux (x64 / ARM64)</h3>
+    <pre class="term">./start.sh info
+./start.sh recover</pre>
+    <p>Si falta una dependencia te dice cuál y te ofrece instalarla con el
+    gestor de tu distro, pidiendo confirmación.</p></div>
+  <div class="card"><h3>Windows 10/11</h3>
+    <pre class="term">digi-f8748-ps1.bat info
+digi-f8748-ps1.bat recover</pre>
+    <p>Doble clic en el <code>.bat</code>. Para el volcado usa el módulo
+    gratuito Posh-SSH: si falta, se ofrece instalarlo.</p></div>
+</div>
+
+<h2>Comandos</h2>
+<table>
+  <tr><th>Comando</th><th>Qué hace</th><th>Toca el router</th></tr>
+  <tr><td><code>info</code></td><td>Modelo, firmware y MACs de tu red</td><td>No</td></tr>
+  <tr><td><code>handshake</code></td><td>Comprueba la comunicación con el router</td><td>No</td></tr>
+  <tr><td><code>arm</code></td><td>Habilita el diagnóstico temporal</td><td>Sí (lo cierra al acabar)</td></tr>
+  <tr><td><code>dump</code></td><td>Extrae los datos cifrados de la flash</td><td>Sí (ídem)</td></tr>
+  <tr><td><code>decrypt</code></td><td>Descifra en local y muestra credenciales</td><td>No</td></tr>
+  <tr><td><code>verify</code></td><td>Comprueba el login de administrador</td><td>No</td></tr>
+  <tr><td><code>disarm</code></td><td>Cierra el diagnóstico temporal</td><td>Sí (lo cierra)</td></tr>
+  <tr><td><code>recover</code></td><td>Todo el proceso completo</td><td>Sí (ídem)</td></tr>
+</table>
+
+<h2>Preguntas frecuentes</h2>
+<details><summary>¿Se cambia la contraseña del router?</summary>
+  <p>No. La que se recupera es la que ya tiene almacenada el router de
+  fábrica. Después puedes cambiarla tú desde el panel.</p></details>
+<details><summary>¿Se modifica la configuración o se pierde Internet?</summary>
+  <p>No. El proceso es de solo lectura sobre la configuración y al terminar no
+  queda ningún acceso abierto.</p></details>
+<details><summary>¿Sirve para cualquier router?</summary>
+  <p>Está específica para la familia ZTE F8748 de DIGI España.</p></details>
+<details><summary>¿Deja huella o acceso permanente?</summary>
+  <p>No. No se instala nada en el router ni en el equipo, y el acceso de
+  diagnóstico se cierra solo al terminar.</p></details>
+<details><summary>¿Y si se corta a mitad de proceso?</summary>
+  <p>Apaga y enciende el router, espera un par de minutos y vuelve a
+  intentarlo una vez. Todo vuelve a la normalidad por sí solo.</p></details>
+
+<h2>Requisitos</h2>
+<p class="lead">Estar conectado a la red del router, el login web normal
+(habitualmente <code>user</code> / <code>user</code>) y varios minutos sin
+interrumpir el proceso.</p>
+
+<div class="legal"><b>Uso responsable:</b> herramienta pensada para recuperar el
+acceso de administrador en routers propios o autorizados explícitamente.
+Software proporcionado "tal cual", sin garantías: úsala bajo tu propia
+responsabilidad.</div>
+
+<footer>
+  DIGI F8748 Admin Recovery v1.0.0 · scripts abiertos para macOS, Linux y Windows ·
+  <a href="DIGI-F8748-v1.0.0-source.zip">código fuente</a><br>
+  Hecho por <a href="https://github.com/686f6c61">686f6c61</a> ·
+  <a href="https://github.com/686f6c61/DIGI-F8748">github.com/686f6c61/DIGI-F8748</a>
+</footer>
+
+</main>
+</body>
+</html>
