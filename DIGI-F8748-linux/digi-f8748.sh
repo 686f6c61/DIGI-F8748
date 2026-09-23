@@ -246,7 +246,7 @@ require_auth(){
     log "expresa del propietario para gestionarlo."
     printf "Escribe SI para continuar: "
     read -r A
-    [ "$A" = "SI" ] || die "cancelado"
+    [ "$(printf '%s' "$A" | tr '[:lower:]' '[:upper:]')" = "SI" ] || die "cancelado"
   else
     die "se requiere confirmación interactiva de autorización (o el flag -y)"
   fi
@@ -261,7 +261,7 @@ confirm_git(){
   [ -t 0 ] || die "carpeta de salida dentro de un repo git: confirma en una terminal o usa -y"
   printf "¿Continuar de todos modos? [escribe SI] "
   read -r A
-  [ "$A" = "SI" ] || die "cancelado: no se volcará nada dentro de un repo git"
+  [ "$(printf '%s' "$A" | tr '[:lower:]' '[:upper:]')" = "SI" ] || die "cancelado: no se volcará nada dentro de un repo git"
 }
 
 # --------------------------- comandos del CLI --------------------------------
