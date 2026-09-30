@@ -1,0 +1,34 @@
+# ---- builds / herramienta local ----
+*.zip
+.DS_Store
+.mimosa/
+.build/
+__pycache__/
+make_release.py
+
+# ---- JAMAS subir volcados del router ----
+# Ni la carpeta de salida del CLI ni los artefactos sueltos que pueda generar.
+digi-dump/
+*digi-dump*/
+*dump*/
+hardcode.seed
+oss.bin
+paramtag.bin
+boardtype.txt
+*.seed
+
+# ---- JAMAS subir credenciales o material secreto ----
+*cred*
+*secret*
+*password*
+*.pem
+*.key
+*.p12
+*.bin
+f8748rec_*
+
+# ---- sondeos / logs de diagnostico ----
+probe_*
+wf_*
+*.log
+mac_enc.txt
