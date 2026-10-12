@@ -43,7 +43,7 @@ $PARAM_DEVICES = @("/dev/mtd1", "/dev/mtd2", "/dev/mtd3", "/dev/mtd4", "/dev/mtd
 $DUMP_WINDOWS = @(0x980000, 0x9C0000, 0xA00000, 0xA40000, 0xA80000, 0x900000,
                   0x940000, 0xAC0000, 0xB00000, 0x800000, 0x880000)
 
-$Host_ = "192.168.1.1"; $WebU = ""; $WebP = ""; $CRand = 0
+$Host_ = ""; $HostProvided = $false; $WebU = ""; $WebP = ""; $CRand = 0
 $RMac = ""; $CMac = ""; $OutDir = "digi-dump"; $VUser = ""; $VPass = ""; $VidOverride = ""
 
 function Banner {
@@ -55,6 +55,7 @@ function Banner {
   Write-Host "|____/___\____|___|"
   Write-Host "  ZTE F8748 (Digi) - ADMIN RECOVERY - solo uso autorizado"
   Write-Host "        digi-f8748 $VERSION - $(Get-Date -Format 'yyyy-MM-dd HH:mm')"
+  if ($Host_) { Write-Host "        Router: $Host_" }
 }
 
 function Die([string]$m) { Write-Host "[x] $m" -ForegroundColor Red; exit 1 }
@@ -139,6 +140,51 @@ function GetString([string]$url) {
   $read = $r.Content.ReadAsByteArrayAsync()
   $null = $read.Wait([TimeSpan]::FromSeconds(15))
   [System.Text.Encoding]::UTF8.GetString($read.Result)
+}
+
+function Test-RouterWeb([string]$host) {
+  $probeClient = [System.Net.Http.HttpClient]::new()
+  $probeClient.Timeout = [TimeSpan]::FromSeconds(3)
+  try {
+    $probeResponse = $probeClient.GetAsync("http://$host/").GetAwaiter().GetResult()
+    $probeResponse.Dispose()
+    return $true
+  } catch { return $false }
+  finally { $probeClient.Dispose() }
+}
+
+function Resolve-RouterHost {
+  if ($HostProvided) {
+    if ($Host_ -notmatch '^[A-Za-z0-9.\-]{1,253}$') { Die "direccion de router no valida: $Host_" }
+    return
+  }
+
+  $gateway = $null
+  try {
+    $route = Get-NetRoute -AddressFamily IPv4 -DestinationPrefix '0.0.0.0/0' -ErrorAction Stop |
+      Where-Object { $_.NextHop -and $_.NextHop -ne '0.0.0.0' } |
+      Sort-Object RouteMetric, InterfaceMetric |
+      Select-Object -First 1
+    if ($route) { $gateway = [string]$route.NextHop }
+  } catch { }
+
+  if ($gateway) {
+    try {
+      if (-not (Test-RouterWeb $gateway)) { throw "HTTP probe failed" }
+      $script:Host_ = $gateway
+      Log "[*] Router detectado en la puerta de enlace: $Host_"
+      return
+    } catch {
+      Log "[!] La puerta de enlace $gateway no responde por HTTP."
+    }
+  } else {
+    Log "[!] No se detecto una puerta de enlace IPv4 predeterminada."
+  }
+
+  $prompt = if ($gateway) { "Direccion IP o nombre del router (puerta de enlace $gateway)" } else { "Direccion IP o nombre del router" }
+  try { $script:Host_ = (Read-Host $prompt).Trim() } catch { Die "no se pudo leer la direccion del router; pasa --host <direccion>" }
+  if (-not $Host_) { Die "falta la direccion del router; pasa --host <direccion>" }
+  if ($Host_ -notmatch '^[A-Za-z0-9.\-]{1,253}$') { Die "direccion de router no valida: $Host_" }
 }
 
 # --------------------------------- MACs --------------------------------------
@@ -596,7 +642,7 @@ $Cmd = $args[0]; if ($args.Count -gt 0) { $null = $args | Select-Object -First 1
 $i = 1
 while ($i -lt $args.Count) {
   switch -Regex ($args[$i]) {
-    '^(-H|--host)$' { $Host_ = $args[$i + 1]; $i += 2; continue }
+    '^(-H|--host)$' { $Host_ = $args[$i + 1]; $HostProvided = $true; $i += 2; continue }
     '^--web-user$' { $WebU = $args[$i + 1]; $i += 2; continue }
     '^--web-pass$' { $WebP = $args[$i + 1]; $i += 2; continue }
     '^--client-rand$' { $CRand = [long]$args[$i + 1]; $i += 2; continue }
@@ -613,6 +659,7 @@ while ($i -lt $args.Count) {
   }
 }
 
+if ($Cmd -in @('info', 'handshake', 'arm', 'dump', 'verify', 'disarm', 'recover')) { Resolve-RouterHost }
 Banner
 switch ($Cmd) {
   "info" { Cmd-Info }
