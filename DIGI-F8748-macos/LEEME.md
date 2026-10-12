@@ -134,8 +134,9 @@ También funciona el script `.sh` dentro de WSL (Ubuntu en Windows).
 | `disarm` | Cierra el acceso de diagnóstico | Sí (lo cierra) |
 | `recover` | Todo el proceso completo, de principio a fin | Sí (ídem) |
 
-Opciones: `--host` (IP del router), `--web-user` / `--web-pass` (tu login
-normal), `--router-mac` / `--client-mac`, `--out` (carpeta de salida),
+Opciones: `--host` (IP del router), `--web-user` / `--web-pass` (login normal,
+necesario en `arm`, `dump`, `recover` y `disarm`; si se omite se solicita y
+valida antes de FactoryMode), `--router-mac` / `--client-mac`, `--out` (salida),
 `--keep-ssh` (no recomendado).
 
 ## Qué obtienes
@@ -153,7 +154,7 @@ fábrica. Con ellos puedes:
 ## Requisitos
 
 - Estar conectado a la red del router (Wi-Fi o cable).
-- El login web normal del router (habitualmente `user` / `user`).
+- Las credenciales actuales del login web normal del router.
 - Varios minutos sin interrumpir el proceso.
 
 ## Preguntas frecuentes

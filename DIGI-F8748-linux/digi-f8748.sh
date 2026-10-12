@@ -53,7 +53,7 @@ DUMP_DEVICES="/dev/mtd9 /dev/mtd8 /dev/mtd10 /dev/mtd7"
 PARAM_DEVICES="/dev/mtd1 /dev/mtd2 /dev/mtd3 /dev/mtd4 /dev/mtd5"
 
 # ------------------------------- estado global -------------------------------
-HOST="192.168.1.1"; WEBU="user"; WEBP="user"; CRAND=0
+HOST="192.168.1.1"; WEBU=""; WEBP=""; CRAND=0
 RMAC=""; CMAC=""; OUTDIR="digi-dump"
 KEY_HEX=""; WF_COOKIE=""
 T="$(mktemp -d)"
@@ -210,6 +210,20 @@ mac_proof(){ payload_msg "$RMAC" "$CMAC"; }
 wf_proof(){ R=$(wf_send "$(mac_proof)"); log "[+] prueba de MACs enviada"; }
 wf_login(){ wf_send "CheckLoginAuth.gch?version50&user=$WEBU&pass=$WEBP" >/dev/null; }
 
+resolve_web_credentials(){
+  if [ -z "$WEBU" ]; then
+    [ -t 0 ] || die "pasa --web-user o ejecuta desde una terminal interactiva"
+    read -r -p "Usuario web normal del router: " WEBU
+  fi
+  if [ -z "$WEBP" ]; then
+    [ -t 0 ] || die "pasa --web-pass o ejecuta desde una terminal interactiva"
+    read -r -s -p "Contraseña web normal del router: " WEBP; printf '\n'
+  fi
+  [ -n "$WEBU" ] && [ -n "$WEBP" ] || die "se necesitan usuario y contraseña web normal"
+  VUSER="$WEBU"; VPASS="$WEBP"
+  cmd_verify >/dev/null
+}
+
 factory_mode(){ # $1 = 2|armar -> imprime "user pass"
   RAW=$(wf_send "FactoryMode.gch?mode=$1&user=notused")
   L=$(printf '%s' "$RAW" | wc -c | tr -d ' ')
@@ -231,6 +245,7 @@ wf_close(){ # desarma: FactoryMode.gch?close (mode=0 NO desarma en este firmware
 
 arm_with_retries(){
   require_auth
+  resolve_web_credentials
   resolve_macs
   A=1
   while [ $A -le 3 ]; do
@@ -334,6 +349,7 @@ cmd_arm(){
 }
 
 cmd_disarm(){
+  resolve_web_credentials
   resolve_macs
   wf_init && wf_proof && wf_login
   wf_close
@@ -361,7 +377,7 @@ cmd_verify(){
   if curl -s -m 15 -A Mozilla/5.0 -b "$CJ" "http://$HOST/" | grep -q 'curRight = "1"'; then
     log "[+] login admin web confirmado (curRight=1)"
   else
-    log "[!] login NO confirmado"
+    die "login web rechazado o no confirmado (comprueba --web-user y --web-pass)"
   fi
 }
 

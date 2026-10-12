@@ -36,6 +36,7 @@ Usage examples
 from __future__ import annotations
 
 import argparse
+import getpass
 import hashlib
 import json
 import os
@@ -79,8 +80,6 @@ KEY_POOL = bytes.fromhex(
     "5c69df8cd21cde3b352d2fe1de4c77f51a65d1fe18438ea742080478d5e4f33"
     "4a4d3f236476d869d42651342dc429948dc679f9edc46375f849f6f76ce794f49"
 )
-DEFAULT_WEB_USER = "user"
-DEFAULT_WEB_PASS = "user"
 DEFAULT_VID = "108"                # fallback board vid if boardtype read fails
 
 HARDCODE_MAGIC = b"\x01\x02\x03\x04"
@@ -823,8 +822,8 @@ def router_info(host: str, timeout: float = 8.0) -> dict:
 # --------------------------------------------------------------------------
 def common_args(p: argparse.ArgumentParser) -> None:
     p.add_argument("--host", default="192.168.1.1", help="router IP (default 192.168.1.1)")
-    p.add_argument("--web-user", default=DEFAULT_WEB_USER, help="normal web login user")
-    p.add_argument("--web-pass", default=DEFAULT_WEB_PASS, help="normal web login password")
+    p.add_argument("--web-user", default="", help="normal web login user (prompted if omitted)")
+    p.add_argument("--web-pass", default="", help="normal web login password (prompted if omitted)")
     p.add_argument("--client-rand", type=int, default=0, help="webFac client rand (default 0)")
     p.add_argument("-y", "--yes", action="store_true", dest="yes",
                    help="no pedir confirmaciones de autorización")
@@ -873,7 +872,24 @@ def cmd_handshake(args) -> None:
     log("[+] handshake complete")
 
 
+def ensure_web_credentials(args) -> None:
+    if not args.web_user:
+        args.web_user = input("Router web username: ").strip()
+    if not args.web_pass:
+        args.web_pass = getpass.getpass("Router web password: ")
+    if not args.web_user or not args.web_pass:
+        raise RuntimeError("normal web-login username and password are required")
+    try:
+        login = verify_web_admin(args.host, args.web_user, args.web_pass)
+    except Exception as e:
+        raise RuntimeError(f"normal web-login check failed before FactoryMode: {e}") from e
+    if not login.get("ok"):
+        reason = login.get("loginErrMsg") or login.get("error") or "admin access was not confirmed"
+        raise RuntimeError(f"normal web-login rejected before FactoryMode: {reason}")
+
+
 def arm_with_retries(args, attempts: int = 3) -> tuple[WebFac, str, str]:
+    ensure_web_credentials(args)
     br0, cli = resolve_macs(args)
     last = None
     for i in range(1, attempts + 1):
@@ -1016,6 +1032,7 @@ def cmd_verify(args) -> None:
 
 
 def cmd_disarm(args) -> None:
+    ensure_web_credentials(args)
     br0, cli = resolve_macs(args)
     w = WebFac(args.host, args.web_user, args.web_pass, args.client_rand)
     w.handshake()
