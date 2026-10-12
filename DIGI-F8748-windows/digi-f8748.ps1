@@ -298,6 +298,17 @@ function Test-FactorySshClosed([int]$waitSeconds = 6) {
     finally { $client.Dispose() }
     Start-Sleep -Milliseconds 300
   } while ([DateTime]::UtcNow -lt $deadline)
+
+  # Some routers silently drop port 22 instead of refusing the connection.
+  # Treat that as unavailable only when the router still answers on HTTP.
+  try {
+    $cancel = [System.Threading.CancellationTokenSource]::new([TimeSpan]::FromSeconds(3))
+    try {
+      $response = $script:http.GetAsync("http://$Host_/", $cancel.Token).GetAwaiter().GetResult()
+      $response.Dispose()
+      return $true
+    } finally { $cancel.Dispose() }
+  } catch { }
   return $false
 }
 
