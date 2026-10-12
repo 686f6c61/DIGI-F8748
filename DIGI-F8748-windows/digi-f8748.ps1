@@ -142,11 +142,11 @@ function GetString([string]$url) {
   [System.Text.Encoding]::UTF8.GetString($read.Result)
 }
 
-function Test-RouterWeb([string]$host) {
+function Test-RouterWeb([string]$routerHost) {
   $probeClient = [System.Net.Http.HttpClient]::new()
   $probeClient.Timeout = [TimeSpan]::FromSeconds(3)
   try {
-    $probeResponse = $probeClient.GetAsync("http://$host/").GetAwaiter().GetResult()
+    $probeResponse = $probeClient.GetAsync("http://$routerHost/").GetAwaiter().GetResult()
     $probeResponse.Dispose()
     return $true
   } catch { return $false }
