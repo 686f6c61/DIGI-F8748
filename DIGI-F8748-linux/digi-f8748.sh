@@ -55,9 +55,17 @@ PARAM_DEVICES="/dev/mtd1 /dev/mtd2 /dev/mtd3 /dev/mtd4 /dev/mtd5"
 # ------------------------------- estado global -------------------------------
 HOST="192.168.1.1"; WEBU=""; WEBP=""; CRAND=0
 RMAC=""; CMAC=""; OUTDIR="digi-dump"
+FACTORY_ARMED=0
 KEY_HEX=""; WF_COOKIE=""
 T="$(mktemp -d)"
-trap 'rm -rf "$T"' EXIT
+cleanup_on_exit(){
+  STATUS=$?
+  trap - EXIT
+  if [ "$FACTORY_ARMED" = "1" ] && [ "${KEEP:-0}" != "1" ]; then close_factory_ssh || STATUS=1; fi
+  rm -rf "$T"
+  exit "$STATUS"
+}
+trap cleanup_on_exit EXIT
 
 log(){ printf '%s\n' "$*"; }
 die(){ printf '[x] %s\n' "$*" >&2; exit 1; }
@@ -239,8 +247,38 @@ factory_mode(){ # $1 = 2|armar -> imprime "user pass"
 }
 
 wf_close(){ # desarma: FactoryMode.gch?close (mode=0 NO desarma en este firmware)
-  wf_send "FactoryMode.gch?close" >/dev/null
+  wf_send "FactoryMode.gch?close" >/dev/null || return 1
   return 0
+}
+
+factory_ssh_closed(){
+  A=1
+  while [ "$A" -le 5 ]; do
+    SCAN=$(ssh-keyscan -T 2 -p 22 "$HOST" 2>&1); RC=$?
+    if [ "$RC" -eq 0 ] && [ -n "$SCAN" ]; then return 1; fi
+    printf '%s' "$SCAN" | grep -qi 'Connection refused' && return 0
+    sleep 0.3
+    A=$((A+1))
+  done
+  return 1
+}
+
+close_factory_ssh(){
+  A=1
+  while [ "$A" -le 3 ]; do
+    if (trap - EXIT; wf_init && wf_proof && wf_login && wf_close); then :
+    else log "[!] intento de desarme $A/3 fallo"; fi
+    sleep 1.5
+    if factory_ssh_closed; then
+      FACTORY_ARMED=0
+      log "[+] factory SSH cerrado (TCP/22 rechazado)"
+      return 0
+    fi
+    log "[!] no se pudo confirmar el cierre de factory SSH tras el intento $A/3"
+    A=$((A+1))
+  done
+  log "[x] cierre de factory SSH sin confirmar; ejecuta 'disarm' o reinicia el router"
+  return 1
 }
 
 arm_with_retries(){
@@ -256,6 +294,7 @@ arm_with_retries(){
       R=$(factory_mode 2)
       if [ -n "$R" ]; then
         SSHU=${R%% *}; SSHP=${R##* }
+        FACTORY_ARMED=1
         log "[+] factory SSH armado — user: $SSHU  pass: $SSHP"
         return 0
       fi
@@ -343,17 +382,14 @@ cmd_arm(){
   if [ "${KEEP:-0}" = "1" ]; then
     log "[i] --keep-ssh: dejando el SSH abierto (recuerda desarmar con 'disarm')"
   else
-    sleep 1; wf_init && wf_proof && wf_login && wf_close
-    log "[+] factory SSH desarmado"
+    sleep 1; close_factory_ssh || die "no se pudo confirmar el cierre de factory SSH"
   fi
 }
 
 cmd_disarm(){
   resolve_web_credentials
   resolve_macs
-  wf_init && wf_proof && wf_login
-  wf_close
-  log "[+] factory SSH desarmado"
+  close_factory_ssh || die "no se pudo confirmar el cierre de factory SSH"
 }
 
 cmd_verify(){
@@ -396,7 +432,7 @@ cmd_dump(){
   dump_all
   if [ "${KEEP:-0}" != "1" ]; then
     log "[*] desarmando factory SSH..."; sleep 1
-    wf_init && wf_proof && wf_login && wf_close && log "[+] desarmado"
+    close_factory_ssh || die "no se pudo confirmar el cierre de factory SSH"
   fi
   summarize
 }
