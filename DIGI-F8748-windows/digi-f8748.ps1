@@ -182,8 +182,8 @@ function ResolveMacs {
   if (-not $RMac) { $RMac = Get-RouterMac $nic }
   if (-not $CMac) { $CMac = Get-ClientMac $nic }
   $RMac = CleanMac $RMac; $CMac = CleanMac $CMac
-  if ($RMac -notmatch '^[0-9a-f]{12}$') { Die "Router MAC desconocida - pasa -RouterMac aa:bb:cc:dd:ee:ff" }
-  if ($CMac -notmatch '^[0-9a-f]{12}$') { Die "Client MAC desconocida - pasa -ClientMac aa:bb:cc:dd:ee:ff" }
+  if ($RMac -notmatch '^[0-9a-f]{12}$') { Die "Router MAC desconocida - pasa --router-mac aa:bb:cc:dd:ee:ff" }
+  if ($CMac -notmatch '^[0-9a-f]{12}$') { Die "Client MAC desconocida - pasa --client-mac aa:bb:cc:dd:ee:ff" }
   $script:RMac = $RMac; $script:CMac = $CMac
   Log "[*] Router MAC (br0): $RMac"
   Log "[*] Client MAC:       $CMac"
