@@ -37,6 +37,7 @@ Usage examples
 from __future__ import annotations
 
 import argparse
+import errno
 import getpass
 import hashlib
 import json
@@ -1022,7 +1023,9 @@ def resolve_macs(args) -> tuple[bytes, bytes]:
         die("Client MAC unknown — pass --client-mac aa:bb:cc:dd:ee:ff")
     log(f"[*] Router MAC (br0): {br0_hex}")
     log(f"[*] Client MAC:       {cli_hex}")
-    return parse_mac(br0_hex), parse_mac(cli_hex)
+    br0, cli = parse_mac(br0_hex), parse_mac(cli_hex)
+    args.router_mac, args.client_mac = br0.hex(), cli.hex()
+    return br0, cli
 
 
 def step_handshake(args, send_proof: bool = False) -> WebFac:
@@ -1111,6 +1114,56 @@ def arm_with_retries(args, attempts: int = 3) -> tuple[WebFac, str, str]:
     raise last if last else RuntimeError("arm failed")
 
 
+def factory_ssh_closed(host: str, wait_s: float = 6.0) -> bool:
+    """Confirm TCP/22 refuses connections after FactoryMode close."""
+    deadline = time.monotonic() + wait_s
+    while True:
+        try:
+            with socket.create_connection((host, 22), timeout=0.5):
+                return False
+        except OSError as exc:
+            if (
+                exc.errno == errno.ECONNREFUSED
+                or getattr(exc, "winerror", None) == 10061
+            ):
+                return True
+        if time.monotonic() >= deadline:
+            return False
+        time.sleep(0.4)
+
+
+def disarm_factory(args, attempts: int = 3) -> bool:
+    """Close Factory SSH with a fresh webFac session and verify TCP/22."""
+    try:
+        br0, cli = resolve_macs(args)
+    except (RuntimeError, ValueError, SystemExit) as exc:
+        log(f"[!] cannot prepare a fresh disarm session: {exc}")
+        if factory_ssh_closed(args.host):
+            log("[+] factory SSH closed (TCP/22 unreachable)")
+            return True
+        log(
+            "[x] factory SSH closure was not confirmed; run 'disarm' or reboot the router"
+        )
+        return False
+    for attempt in range(1, attempts + 1):
+        try:
+            w = WebFac(args.host, args.web_user, args.web_pass, args.client_rand)
+            w.handshake()
+            w.mac_proof(br0, cli)
+            w.login()
+            w.factory_mode(0, 1.2)
+        except Exception as exc:
+            log(f"[!] disarm attempt {attempt}/{attempts} failed: {exc}")
+        if factory_ssh_closed(args.host):
+            log("[+] factory SSH closed (TCP/22 unreachable)")
+            return True
+        log(
+            f"[!] factory SSH still reachable after disarm attempt {attempt}/{attempts}"
+        )
+    log("[x] factory SSH closure was not confirmed; run 'disarm' or reboot the router")
+    return False
+
+
 def cmd_arm(args) -> None:
     require_authorization(args, "activar el diagnóstico de fábrica (arm)")
     w, fu, fp = arm_with_retries(args)
@@ -1122,11 +1175,7 @@ def cmd_arm(args) -> None:
         log(f"[+] credentials saved to {p} (0600)")
     if not getattr(args, "keep_ssh", False):
         log("[*] disarming (use --keep-ssh to leave it open)…")
-        try:
-            w.factory_mode(0, 1.2)
-            log("[+] factory SSH disarmed")
-        except Exception as e:
-            log(f"[!] disarm failed ({e}) — reboot the router if port 22 stays open")
+        disarm_factory(args)
 
 
 def warn_git_repo(path: Path) -> None:
@@ -1233,13 +1282,8 @@ def cmd_verify(args) -> None:
 
 def cmd_disarm(args) -> None:
     ensure_web_credentials(args)
-    br0, cli = resolve_macs(args)
-    w = WebFac(args.host, args.web_user, args.web_pass, args.client_rand)
-    w.handshake()
-    w.mac_proof(br0, cli)
-    w.login()
-    w.factory_mode(0, 1.2)
-    log("[+] factory SSH disarmed")
+    if not disarm_factory(args):
+        raise RuntimeError("factory SSH closure could not be confirmed")
 
 
 def cmd_recover(args) -> None:
@@ -1287,11 +1331,7 @@ def cmd_recover(args) -> None:
             )
     finally:
         log("[*] closing temporary access…")
-        try:
-            w.factory_mode(0, 1.2)
-            log("[+] factory SSH disarmed")
-        except Exception as e:
-            log(f"[!] disarm failed ({e}) — reboot the router if port 22 stays open")
+        disarm_factory(args)
 
 
 BANNER = r"""

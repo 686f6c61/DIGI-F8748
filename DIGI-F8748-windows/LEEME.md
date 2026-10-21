@@ -139,6 +139,11 @@ su dirección si la interfaz web responde. Si no puede detectarla o alcanzarla,
 te pide la dirección del router. Puedes indicar `--host` para elegirla
 directamente, por ejemplo `--host 10.20.30.1`.
 
+Salvo que se use `--keep-ssh`, al terminar `recover`, `dump` o `arm` el
+programa abre una sesión web nueva para cerrar el acceso temporal y comprueba
+que TCP/22 ya no responde. Si no puede confirmar el cierre, lo indicará
+claramente: ejecuta `disarm` y, si el router sigue inaccesible, reinícialo.
+
 Opciones: `--host` (IP o nombre del router), `--web-user` / `--web-pass` (login normal,
 necesario en `arm`, `dump`, `recover` y `disarm`; si se omite se solicita y
 valida antes de FactoryMode), `--router-mac` / `--client-mac`, `--out` (salida),

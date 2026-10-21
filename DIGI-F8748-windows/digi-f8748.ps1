@@ -282,6 +282,59 @@ function Invoke-FactoryMode([int]$mode) {
   throw "FactoryMode no devolvio credenciales (fallo la prueba de MACs?)"
 }
 
+function Test-FactorySshClosed([int]$waitSeconds = 6) {
+  $deadline = [DateTime]::UtcNow.AddSeconds($waitSeconds)
+  do {
+    $client = [System.Net.Sockets.TcpClient]::new()
+    try {
+      $connect = $client.BeginConnect($Host_, 22, $null, $null)
+      if ($connect.AsyncWaitHandle.WaitOne(500)) {
+        try { $client.EndConnect($connect); return $false }
+        catch [System.Net.Sockets.SocketException] {
+          if ($_.Exception.SocketErrorCode -eq [System.Net.Sockets.SocketError]::ConnectionRefused) { return $true }
+        }
+      }
+    } catch { }
+    finally { $client.Dispose() }
+    Start-Sleep -Milliseconds 300
+  } while ([DateTime]::UtcNow -lt $deadline)
+
+  # Some routers silently drop port 22 instead of refusing the connection.
+  # Treat that as unavailable only when the router still answers on HTTP.
+  try {
+    $cancel = [System.Threading.CancellationTokenSource]::new([TimeSpan]::FromSeconds(3))
+    try {
+      $response = $script:http.GetAsync("http://$Host_/", $cancel.Token).GetAwaiter().GetResult()
+      $response.Dispose()
+      return $true
+    } finally { $cancel.Dispose() }
+  } catch { }
+  return $false
+}
+
+function Close-FactorySsh([int]$attempts = 3) {
+  for ($attempt = 1; $attempt -le $attempts; $attempt++) {
+    try {
+      $script:http.Dispose()
+      $script:http = [System.Net.Http.HttpClient]::new()
+      $script:http.Timeout = [TimeSpan]::FromSeconds(15)
+      [void]$script:http.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", "Mozilla/5.0")
+      Invoke-WfInit
+      Invoke-WfProof
+      Invoke-WfLogin
+      $null = Invoke-FactoryMode 0
+    } catch { Log "[!] intento de desarme $attempt/$attempts fallo: $($_.Exception.Message)" }
+
+    if (Test-FactorySshClosed) {
+      Log "[+] factory SSH cerrado (TCP/22 no accesible)"
+      return $true
+    }
+    Log "[!] factory SSH sigue accesible tras el intento $attempt/$attempts"
+  }
+  Log "[x] no se pudo confirmar el cierre de factory SSH; ejecuta 'disarm' o reinicia el router"
+  return $false
+}
+
 function Invoke-ArmWithRetries([int]$attempts = 3) {
   Ensure-WebCredentials
   ResolveMacs
@@ -550,16 +603,15 @@ function Cmd-Arm {
   if ($Keep) {
     Log "[i] -Keep: dejando el SSH abierto (recuerda desarmar)"
   } else {
-    Start-Sleep -Seconds 1; Invoke-WfInit; Invoke-WfProof; Invoke-WfLogin; $null = Invoke-FactoryMode 0
-    Log "[+] factory SSH desarmado"
+    Start-Sleep -Seconds 1
+    $null = Close-FactorySsh
   }
 }
 
 function Cmd-Disarm {
   Ensure-WebCredentials
-  ResolveMacs; Invoke-WfInit; Invoke-WfProof; Invoke-WfLogin
-  $null = Invoke-FactoryMode 0
-  Log "[+] factory SSH desarmado"
+  ResolveMacs
+  if (-not (Close-FactorySsh)) { Die "no se pudo confirmar el cierre de factory SSH" }
 }
 
 function Cmd-Dump {
@@ -571,8 +623,7 @@ function Cmd-Dump {
   finally {
     if (-not $Keep) {
       Log "[*] desarmando factory SSH..."
-      try { Invoke-WfInit; Invoke-WfProof; Invoke-WfLogin; $null = Invoke-FactoryMode 0; Log "[+] desarmado" }
-      catch { Log "[!] disarm fallo - reinicia el router si el puerto 22 sigue abierto" }
+      $null = Close-FactorySsh
     }
   }
 }
@@ -632,8 +683,7 @@ function Cmd-Recover {
     }
   } finally {
     Log "[*] cerrando acceso temporal..."
-    try { Invoke-WfInit; Invoke-WfProof; Invoke-WfLogin; $null = Invoke-FactoryMode 0; Log "[+] factory SSH desarmado" }
-    catch { Log "[!] disarm fallo - reinicia el router si el puerto 22 sigue abierto" }
+    $null = Close-FactorySsh
   }
 }
 
