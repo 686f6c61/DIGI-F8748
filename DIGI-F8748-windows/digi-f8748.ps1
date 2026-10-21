@@ -143,24 +143,44 @@ function GetString([string]$url) {
 
 # --------------------------------- MACs --------------------------------------
 function CleanMac([string]$s) { ($s -replace '[:\-]', '').ToLower() }
-function ResolveMacs {
-  if (-not $RMac) {
-    try {
-      $null = New-Object System.Net.NetworkInformation.Ping
-      $p = (New-Object System.Net.NetworkInformation.Ping).Send($Host_, 1000)
-      if ($p.Status -eq 'Success') { $RMac = ($p.MacAddress.ToString() -replace '-', '') }
-    } catch { }
-  }
-  if (-not $CMac) {
+function Get-RouteInterface {
+  $udp = $null
+  try {
+    $udp = New-Object System.Net.Sockets.UdpClient
+    $udp.Connect($Host_, 80)
+    $localIp = $udp.Client.LocalEndPoint.Address
     foreach ($nic in [System.Net.NetworkInformation.NetworkInterface]::GetAllNetworkInterfaces()) {
+      if ($nic.OperationalStatus -ne 'Up') { continue }
       foreach ($ip in $nic.GetIPProperties().UnicastAddresses) {
-        if ($ip.Address.AddressFamily -eq 'InterNetwork' -and $ip.Address.ToString() -like "192.168.*") {
-          $m = $nic.GetPhysicalAddress().ToString().ToLower()
-          if ($m -and $m -ne '020000000000' -and $m -ne '000000000000') { $CMac = $m }
-        }
+        if ($ip.Address.AddressFamily -eq 'InterNetwork' -and $ip.Address.Equals($localIp)) { return $nic }
       }
     }
-  }
+  } catch { }
+  finally { if ($udp) { $udp.Dispose() } }
+  return $null
+}
+function Get-ClientMac([System.Net.NetworkInformation.NetworkInterface]$nic) {
+  if (-not $nic) { return '' }
+  $mac = CleanMac $nic.GetPhysicalAddress().ToString()
+  if ($mac -match '^[0-9a-f]{12}$' -and $mac -notin @('020000000000', '000000000000')) { return $mac }
+  return ''
+}
+function Get-RouterMac([System.Net.NetworkInformation.NetworkInterface]$nic) {
+  if (-not $nic) { return '' }
+  try {
+    $ifIndex = $nic.GetIPProperties().GetIPv4Properties().Index
+    $neighbors = Get-NetNeighbor -IPAddress $Host_ -InterfaceIndex $ifIndex -ErrorAction Stop
+    foreach ($neighbor in $neighbors) {
+      $mac = CleanMac $neighbor.LinkLayerAddress
+      if ($neighbor.State -notin @('Incomplete', 'Unreachable') -and $mac -match '^[0-9a-f]{12}$' -and $mac -ne '000000000000') { return $mac }
+    }
+  } catch { }
+  return ''
+}
+function ResolveMacs {
+  $nic = Get-RouteInterface
+  if (-not $RMac) { $RMac = Get-RouterMac $nic }
+  if (-not $CMac) { $CMac = Get-ClientMac $nic }
   $RMac = CleanMac $RMac; $CMac = CleanMac $CMac
   if ($RMac -notmatch '^[0-9a-f]{12}$') { Die "Router MAC desconocida - pasa -RouterMac aa:bb:cc:dd:ee:ff" }
   if ($CMac -notmatch '^[0-9a-f]{12}$') { Die "Client MAC desconocida - pasa -ClientMac aa:bb:cc:dd:ee:ff" }
@@ -437,13 +457,11 @@ function Cmd-Info {
   Log ("modelo: " + ($models -join " "))
   $tm = [regex]::Match($html, '<title>(.*?)</title>', 'Singleline')
   if ($tm.Success) { Log ("titulo: " + [System.Net.WebUtility]::HtmlDecode($tm.Groups[1].Value).Trim()) }
-  foreach ($nic in [System.Net.NetworkInformation.NetworkInterface]::GetAllNetworkInterfaces()) {
-    foreach ($ip in $nic.GetIPProperties().UnicastAddresses) {
-      if ($ip.Address.AddressFamily -eq 'InterNetwork' -and $ip.Address.ToString() -like "192.168.*") {
-        Log "tu IP/MAC ($($nic.Name)): $($ip.Address) / $($nic.GetPhysicalAddress())"
-      }
-    }
-  }
+  $nic = Get-RouteInterface
+  $routerMac = if ($RMac) { CleanMac $RMac } else { Get-RouterMac $nic }
+  $clientMac = if ($CMac) { CleanMac $CMac } else { Get-ClientMac $nic }
+  Log "[*] Router MAC (br0): $(if ($routerMac) { $routerMac } else { '?' })"
+  Log "[*] Client MAC:       $(if ($clientMac) { $clientMac } else { '?' })"
   Log "[i] Router MAC = pegatina; Client MAC = la de tu equipo en la lista del router"
 }
 
