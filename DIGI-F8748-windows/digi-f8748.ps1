@@ -43,7 +43,7 @@ $PARAM_DEVICES = @("/dev/mtd1", "/dev/mtd2", "/dev/mtd3", "/dev/mtd4", "/dev/mtd
 $DUMP_WINDOWS = @(0x980000, 0x9C0000, 0xA00000, 0xA40000, 0xA80000, 0x900000,
                   0x940000, 0xAC0000, 0xB00000, 0x800000, 0x880000)
 
-$Host_ = "192.168.1.1"; $WebU = "user"; $WebP = "user"; $CRand = 0
+$Host_ = "192.168.1.1"; $WebU = ""; $WebP = ""; $CRand = 0
 $RMac = ""; $CMac = ""; $OutDir = "digi-dump"; $VUser = ""; $VPass = ""; $VidOverride = ""
 
 function Banner {
@@ -237,6 +237,7 @@ function Invoke-FactoryMode([int]$mode) {
 }
 
 function Invoke-ArmWithRetries([int]$attempts = 3) {
+  Ensure-WebCredentials
   ResolveMacs
   for ($i = 1; $i -le $attempts; $i++) {
     try {
@@ -509,6 +510,7 @@ function Cmd-Arm {
 }
 
 function Cmd-Disarm {
+  Ensure-WebCredentials
   ResolveMacs; Invoke-WfInit; Invoke-WfProof; Invoke-WfLogin
   $null = Invoke-FactoryMode 0
   Log "[+] factory SSH desarmado"
@@ -531,24 +533,43 @@ function Cmd-Dump {
 
 function Cmd-Decrypt { Get-Credentials $OutDir | Out-Null }
 
-function Cmd-Verify {
-  if (-not $VUser -or -not $VPass) { Die "verify necesita -VUser usuario -VPass password" }
+function Test-WebLogin([string]$username, [string]$password) {
   $j = (GetString "http://$Host_/?_type=loginData&_tag=login_entry") | ConvertFrom-Json
   $token = $j.sess_token
-  if ($j.lockingTime -and [int]$j.lockingTime -gt 0) { Die "login bloqueado (lockingTime=$($j.lockingTime))" }
+  if ($j.lockingTime -and [int]$j.lockingTime -gt 0) { throw "login bloqueado (lockingTime=$($j.lockingTime))" }
   $xml = GetString "http://$Host_/?_type=loginData&_tag=login_token"
   $salt = [regex]::Match($xml, '>([^<]+)</').Groups[1].Value.Trim()
-  if (-not $salt) { Die "no se obtuvo salt" }
-  $hash = Sha256Hex ([System.Text.Encoding]::UTF8.GetBytes("$VPass$salt"))
-  $form = "action=login&Username=$([Uri]::EscapeDataString($VUser))&Password=$hash&_sessionTOKEN=$([Uri]::EscapeDataString([string]$token))"
+  if (-not $salt) { throw "no se obtuvo salt" }
+  $hash = Sha256Hex ([System.Text.Encoding]::UTF8.GetBytes("$password$salt"))
+  $form = "action=login&Username=$([Uri]::EscapeDataString($username))&Password=$hash&_sessionTOKEN=$([Uri]::EscapeDataString([string]$token))"
   $content = [System.Net.Http.StringContent]::new($form, [System.Text.Encoding]::UTF8, "application/x-www-form-urlencoded")
   $resp = $http.PostAsync("http://$Host_/?_type=loginData&_tag=login_entry", $content)
-  $null = $resp.Wait([TimeSpan]::FromSeconds(15))
+  if (-not $resp.Wait([TimeSpan]::FromSeconds(15))) { throw "timeout POST login_entry" }
   $body = $resp.Result.Content.ReadAsStringAsync().GetAwaiter().GetResult()
-  if ($body -match 'loginErrMsg":"([^"]+)') { Die "login rechazado: $($Matches[1])" }
+  if ($body -match 'loginErrMsg":"([^"]+)') { throw "login rechazado: $($Matches[1])" }
   $html = GetString "http://$Host_/"
-  if ($html -match 'curRight\s*=\s*"1"') { Log "[+] login admin web confirmado (curRight=1)" }
-  else { Log "[!] login NO confirmado" }
+  if ($html -match 'curRight\s*=\s*"1"') { return $true }
+  throw "login no confirmado (curRight distinto de 1)"
+}
+
+function Ensure-WebCredentials {
+  if (-not $script:WebU) { $script:WebU = Read-Host "Usuario web normal del router" }
+  if (-not $script:WebP) {
+    $secure = Read-Host "Contraseña web normal del router" -AsSecureString
+    $ptr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
+    try { $script:WebP = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($ptr) }
+    finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($ptr) }
+  }
+  if (-not $script:WebU -or -not $script:WebP) { Die "se necesitan usuario y contraseña web normal" }
+  try { $null = Test-WebLogin $script:WebU $script:WebP }
+  catch { Die "login web normal rechazado antes de FactoryMode: $($_.Exception.Message)" }
+  Log "[+] login web normal confirmado"
+}
+
+function Cmd-Verify {
+  if (-not $VUser -or -not $VPass) { Die "verify necesita -VUser usuario -VPass password" }
+  try { $null = Test-WebLogin $VUser $VPass; Log "[+] login admin web confirmado (curRight=1)" }
+  catch { Log "[!] login NO confirmado: $($_.Exception.Message)" }
 }
 
 function Cmd-Recover {

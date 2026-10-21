@@ -55,8 +55,8 @@ legal, consulta a un profesional.
 2. **Ten a mano la pegatina del router** (la de abajo). Si el programa te pide
    la "MAC del router", es la que pone `MAC:` en esa pegatina, con el formato
    `AA-BB-CC-DD-EE-FF`.
-3. **Usuario web normal.** Por defecto es `user` / `user` (si lo cambiaste,
-   usa el tuyo con `--web-user` y `--web-pass`).
+3. **Usuario web normal.** `arm`, `dump`, `recover` y `disarm` te lo piden si no pasas
+   `--web-user` y `--web-pass`. Se valida antes de activar FactoryMode.
 
 ¿Todo listo? Vamos.
 
